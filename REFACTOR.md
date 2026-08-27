@@ -107,7 +107,8 @@ window.DF = window.DF || {};
 ## 진행 상황
 
 - ✅ `src/state.js` — 완료. 전역 상태 객체 + 데이터 모델(makeEmptyPixels/makeLayer/makeEmptyFrame/curFrame/curLayer/curPixels/flattenFrame) + undo/redo를 분리. `DF`와 `window`에 병행 노출(전환기). index.html 인라인 `<script>` **앞**에 로드. `$`/캔버스 참조 const는 아직 인라인.
-- ⬜ 다음: `src/color.js`.
+- ✅ `src/color.js` — 완료. 색상 유틸(hsvToRgb/rgbToHsv/hexToRgb/rgbToHex) + setColor/updatePickerUI/applyPickerColor + 팔레트(pushPalette/renderPalette) + 즐겨찾기(load/save/add/remove/setFavSlot/renderFavorites) + `Palettes` 세트 모듈. state.js 다음, 인라인 앞에 로드. `$`는 인라인의 top-level const(전역 lexical 공유)로 런타임 해소.
+- ⬜ 다음: `src/render.js` (initCanvasSize/applyZoom/setZoom/render/renderOnion/drawGrid/getCell). 단, render/getCell은 `$`·캔버스 const(bgCanvas/mainCtx 등, 아직 인라인)에 강하게 의존 → 캔버스 참조 const도 함께 옮길지 검토 필요.
 
 ## 진행 순서 (Claude Code)
 
