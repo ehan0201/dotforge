@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+dist/
+# 로컬 테스트 산출물
+scratch/
+*.tmp.js

@@ -1,0 +1,103 @@
+  /* ===== 폰트 & 기본 ===== */
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
+  body { font-family: 'Inter', sans-serif; user-select: none; -webkit-user-select: none; }
+  /* 버튼/아이콘 등이 native 드래그로 잡혀 클릭이 씹히는 것 방지 */
+  button, .tool-btn, .frame-thumb, aside, header, span, label { -webkit-user-drag: none; user-drag: none; }
+  img { -webkit-user-drag: none; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* 체커보드(투명영역 표시) 패턴 */
+  .checker {
+    background-image:
+      linear-gradient(45deg, #2a2a33 25%, transparent 25%),
+      linear-gradient(-45deg, #2a2a33 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2a2a33 75%),
+      linear-gradient(-45deg, transparent 75%, #2a2a33 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    background-color: #34343f;
+  }
+
+  /* 캔버스 픽셀 선명하게 */
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+  /* 툴 버튼 활성 상태 */
+  .tool-btn.active { background-color: #6366f1; color: #fff; box-shadow: 0 0 0 1px #818cf8 inset; }
+  .crop-tab { color: #a1a1aa; }
+  .crop-tab.active { background-color: #3f3f46; color: #fff; }
+  .ref-start-tab { color: #a1a1aa; }
+  .ref-start-tab.active { background-color: #3f3f46; color: #fff; }
+  .exp-tab { color: #a1a1aa; }
+  .exp-tab.active { background-color: #4f46e5; color: #fff; }
+  .layer-merge-target { background-color: rgba(99,102,241,0.35) !important; outline: 2px solid #818cf8; outline-offset: -2px; }
+  .play-mode { color: #a1a1aa; background: #27272a; }
+  .play-mode.active { background: #6366f1; color: #fff; }
+  #reverseBtn.active, #advAnimBtn.active { background: #6366f1; color: #fff; border-color: #818cf8; }
+  .tool-btn { transition: all .12s ease; color: #d4d4d8; }
+  .tool-btn:hover:not(.active) { background-color: #303039; color: #fff; }
+
+  /* 슬라이더 */
+  input[type=range] { accent-color: #6366f1; }
+
+  /* 스크롤바 */
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-track { background: #18181b; }
+  ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+  /* 드래그 오버레이 */
+  #dropOverlay { transition: opacity .15s ease; }
+
+  /* 프레임 썸네일 */
+  .frame-thumb.active { box-shadow: 0 0 0 2px #6366f1; }
+  .frame-thumb { transition: box-shadow .12s ease; }
+
+  /* 로비 카드 */
+  .lobby-card { transition: transform .15s ease, border-color .15s ease, background-color .15s ease; }
+  .lobby-card:hover { transform: translateY(-3px); border-color: #6366f1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, .tool-btn, .frame-thumb, .lobby-card { transition: none !important; }
+  }
+
+  /* ===== 고정 레이아웃 (프레임 | 캔버스 | 패널) ===== */
+  #appRow {
+    display: grid;
+    grid-template-columns: var(--frame-w, 260px) 5px 1fr 5px var(--panel-w, 240px);
+    min-height: 0;
+  }
+  #framePanel  { grid-column: 1; min-width: 0; min-height: 0; }
+  #frameResizer{ grid-column: 2; }
+  #centerCol   { grid-column: 3; min-width: 0; min-height: 0; }
+  #panelResizer{ grid-column: 4; }
+  #sidePanel   { grid-column: 5; min-width: 0; min-height: 0; }
+
+  /* 프레임 목록: 좌→우로 흐르는 격자 (넘치면 다음 줄) */
+  #frameList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--frame-cell, 84px), 1fr));
+    gap: 6px; padding: 8px; align-content: start;
+  }
+  .frame-item {
+    position: relative; cursor: pointer;
+    border: 2px solid transparent; border-radius: 8px;
+    padding: 4px; background: #18181b60;
+    transition: border-color .12s, background .12s;
+  }
+  .frame-item:hover { background: #27272a80; }
+  .frame-item.active { border-color: #6366f1; background: #27272a; }
+  .frame-item .fi-num {
+    position: absolute; top: 5px; left: 5px; z-index: 2;
+    font-size: 10px; font-family: ui-monospace, monospace;
+    color: #a1a1aa; background: #09090bcc; border-radius: 4px;
+    padding: 0px 4px; pointer-events: none;
+  }
+  .frame-item canvas.frame-thumb {
+    width: 100%; aspect-ratio: 1/1; display: block;
+    border-radius: 4px; image-rendering: pixelated;
+  }
+  .frame-item .fi-dur {
+    width: 100%; margin-top: 3px; text-align: center;
+    font-size: 9px; font-family: ui-monospace, monospace;
+  }
+  /* 프레임 셀 크기 조절 슬라이더 반영용 */

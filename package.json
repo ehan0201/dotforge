@@ -1,0 +1,15 @@
+{
+  "name": "dotforge",
+  "version": "1.0.0",
+  "description": "단일 HTML 파일 픽셀 아트 애니메이션 에디터",
+  "private": true,
+  "scripts": {
+    "serve": "node scripts/serve.js",
+    "proxy": "node server.js",
+    "dev": "node scripts/serve.js & node server.js",
+    "validate": "node scripts/validate.js",
+    "test": "node scripts/validate.js"
+  },
+  "keywords": ["pixel-art", "animation", "sprite", "editor"],
+  "license": "MIT"
+}
