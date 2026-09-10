@@ -3,12 +3,14 @@
    참고판(무드보드): 작업공간(canvasWrap)에 참고 이미지를 여러 장 자유 배치.
    기존 밑그림(state.ref)과 완전히 독립된 추가 레이어.
 
-   - 이미지 여러 장 추가(버튼/드래그드롭), 드래그 이동, 모서리 리사이즈, 개별 투명도, 삭제, 맨앞으로.
+   - 이미지 여러 장: 버튼 추가 / 작업공간에 드래그드롭 / 클립보드 붙여넣기(Ctrl+V).
+   - 드래그 이동, 모서리 리사이즈, 개별 투명도, 좌우반전, 고정(잠금), 삭제, 맨앞으로.
+   - 우클릭 메뉴: 편집 모드와 무관하게 그림 위 우클릭 → 투명도/고정/반전/맨앞/삭제.
    - 편집 모드 off → 레이어 pointer-events:none → 참고 이미지 위로 그대로 그릴 수 있음.
    - 위치/크기는 canvasWrap 대비 비율(fx/fy/fw) → 창 리사이즈·다른 화면·저장 왕복에 안전.
-   - data URL만 사용(blob 금지). 직렬화는 DF.RefBoard.serialize()/restore()로 io가 사용.
+   - data URL만 사용(blob 금지). gif는 <img>로 자동 재생됨. 직렬화는 DF.RefBoard.serialize()/restore().
 
-   의존: DF.state. 런타임 bare: $, toast, autoSave (인라인). 자체 init(DOM 끝 로드 + 로비 감지).
+   의존: DF.state. 런타임 bare: $, toast, autoSave (인라인). 자체 init.
    노출: DF.RefBoard.
    ===================================================================== */
 window.DF = window.DF || {};
@@ -19,20 +21,18 @@ const { state } = DF;
 const $ = (id) => document.getElementById(id);
 
 let dragId = null, mode = null;       // mode: 'move' | 'resize'
-let startX = 0, startY = 0, startFx = 0, startFy = 0, startFw = 0, startHpx = 0;
+let startX = 0, startY = 0, startFx = 0, startFy = 0, startFw = 0;
+let menuEl = null;                    // 우클릭 컨텍스트 메뉴
 
 function wrapRect() {
   const w = $('canvasWrap');
   return w ? w.getBoundingClientRect() : { left: 0, top: 0, width: 1, height: 1 };
 }
-
 function tileHeightPx(b, W) {
   const widthPx = b.fw * W;
   const ar = (b.natW && b.natH) ? (b.natH / b.natW) : 1;
   return widthPx * ar;
 }
-
-// 한 타일의 위치/크기를 현재 wrap 크기에 맞춰 px로 반영
 function layoutTile(el, b, R) {
   const W = R.width, H = R.height;
   el.style.left   = (b.fx * W) + 'px';
@@ -52,57 +52,45 @@ function render() {
   const R = wrapRect();
 
   state.refBoards.forEach((b, idx) => {
+    const movable = edit && !b.locked;
     const el = document.createElement('div');
     el.className = 'ref-tile';
     el.dataset.id = b.id;
     el.style.cssText = 'position:absolute;box-sizing:border-box;' +
-      (edit ? 'cursor:move;outline:2px solid rgba(99,102,241,.9);outline-offset:0;' : '');
+      (edit ? ('cursor:' + (movable ? 'move' : 'default') + ';outline:2px solid ' +
+        (b.locked ? 'rgba(250,204,21,.9)' : 'rgba(99,102,241,.9)') + ';outline-offset:0;') : '');
     el.style.zIndex = idx;             // 배열 순서 = 쌓임 (뒤쪽이 위)
     layoutTile(el, b, R);
 
     const img = document.createElement('img');
     img.src = b.src;
     img.draggable = false;
-    img.style.cssText = 'width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;-webkit-user-drag:none;';
+    img.style.cssText = 'width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;-webkit-user-drag:none;' +
+      (b.flipX ? 'transform:scaleX(-1);' : '');
     el.appendChild(img);
 
-    if (edit) {
-      // 상단 컨트롤 바 (투명도/맨앞/삭제)
-      const bar = document.createElement('div');
-      bar.style.cssText = 'position:absolute;left:0;top:-30px;display:flex;align-items:center;gap:6px;' +
-        'background:rgba(24,24,27,.95);border:1px solid #3f3f46;border-radius:6px;padding:2px 6px;white-space:nowrap;';
-      bar.addEventListener('pointerdown', e => e.stopPropagation());  // 바 조작은 드래그 아님
+    // 잠금 배지 (편집 모드에서 표시)
+    if (edit && b.locked) {
+      const lk = document.createElement('div');
+      lk.textContent = '🔒';
+      lk.style.cssText = 'position:absolute;right:2px;top:2px;font-size:12px;line-height:1;filter:drop-shadow(0 1px 1px #000);';
+      el.appendChild(lk);
+    }
 
-      const op = document.createElement('input');
-      op.type = 'range'; op.min = '10'; op.max = '100'; op.value = Math.round(b.opacity * 100);
-      op.style.width = '64px';
-      op.title = '투명도';
-      op.addEventListener('input', () => { b.opacity = Math.max(0.1, op.value / 100); el.style.opacity = b.opacity; });
-      op.addEventListener('change', save);
-
-      const front = document.createElement('button');
-      front.textContent = '⤒'; front.title = '맨 앞으로';
-      front.style.cssText = 'color:#d4d4d8;font-size:13px;line-height:1;padding:2px 4px;';
-      front.addEventListener('click', () => { toFront(b.id); });
-
-      const del = document.createElement('button');
-      del.textContent = '✕'; del.title = '삭제';
-      del.style.cssText = 'color:#f87171;font-size:12px;line-height:1;padding:2px 4px;';
-      del.addEventListener('click', () => { remove(b.id); });
-
-      bar.appendChild(op); bar.appendChild(front); bar.appendChild(del);
-      el.appendChild(bar);
-
+    if (movable) {
       // 우하단 리사이즈 핸들
       const h = document.createElement('div');
       h.style.cssText = 'position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;' +
         'background:#6366f1;border:2px solid #fff;border-radius:3px;cursor:nwse-resize;';
       h.addEventListener('pointerdown', e => beginDrag(e, b.id, 'resize'));
       el.appendChild(h);
-
       // 본체 드래그(이동)
       el.addEventListener('pointerdown', e => beginDrag(e, b.id, 'move'));
     }
+
+    // 우클릭 메뉴 (편집 모드 여부와 무관. 아래 canvasWrap contextmenu에서도 잡지만,
+    //  편집 모드로 타일이 이벤트를 먹을 때를 위해 여기도 달아둠)
+    el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showTileMenu(b, e.clientX, e.clientY); });
 
     layer.appendChild(el);
   });
@@ -124,14 +112,27 @@ function render() {
   }
 }
 
+// 좌표 아래에 있는 최상단 타일 찾기 (편집 모드와 무관하게 우클릭용)
+function hitTest(clientX, clientY) {
+  const R = wrapRect();
+  const x = clientX - R.left, y = clientY - R.top;
+  for (let i = state.refBoards.length - 1; i >= 0; i--) {   // 위(뒤쪽)부터
+    const b = state.refBoards[i];
+    const lx = b.fx * R.width, ly = b.fy * R.height;
+    const w = b.fw * R.width, h = tileHeightPx(b, R.width);
+    if (x >= lx && x <= lx + w && y >= ly && y <= ly + h) return b;
+  }
+  return null;
+}
+
 function beginDrag(e, id, m) {
-  if (!state.refBoardEdit) return;
+  if (!state.refBoardEdit || e.button !== 0) return;   // 좌클릭만
+  const b = state.refBoards.find(x => x.id === id); if (!b || b.locked) return;
   e.preventDefault(); e.stopPropagation();
-  const b = state.refBoards.find(x => x.id === id); if (!b) return;
   dragId = id; mode = m;
   const R = wrapRect();
   startX = e.clientX; startY = e.clientY;
-  startFx = b.fx; startFy = b.fy; startFw = b.fw; startHpx = tileHeightPx(b, R.width);
+  startFx = b.fx; startFy = b.fy; startFw = b.fw;
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp, { once: true });
 }
@@ -142,7 +143,7 @@ function onMove(e) {
   if (mode === 'move') {
     b.fx = startFx + dx / R.width;
     b.fy = startFy + dy / R.height;
-  } else { // resize — 폭만 조절, 높이는 비율 유지
+  } else {
     const newWpx = Math.max(24, startFw * R.width + dx);
     b.fw = newWpx / R.width;
   }
@@ -155,16 +156,67 @@ function onUp() {
   save();
 }
 
-// 이미지 추가. fx/fy 생략 시 중앙 부근에 살짝 계단식 배치.
+// ---------- 우클릭 컨텍스트 메뉴 ----------
+function hideMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+function showTileMenu(b, cx, cy) {
+  hideMenu();
+  const m = document.createElement('div');
+  menuEl = m;
+  m.style.cssText = 'position:fixed;z-index:80;min-width:160px;background:rgba(24,24,27,.97);' +
+    'border:1px solid #3f3f46;border-radius:8px;padding:6px;box-shadow:0 8px 24px rgba(0,0,0,.5);' +
+    'font-size:12px;color:#e4e4e7;user-select:none;';
+  m.style.left = Math.min(cx, (window.innerWidth || 9999) - 180) + 'px';
+  m.style.top  = Math.min(cy, (window.innerHeight || 9999) - 220) + 'px';
+  m.addEventListener('pointerdown', e => e.stopPropagation());
+  m.addEventListener('contextmenu', e => e.preventDefault());
+
+  // 투명도
+  const orow = document.createElement('div');
+  orow.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;';
+  const olab = document.createElement('span'); olab.textContent = '투명도'; olab.style.cssText = 'color:#a1a1aa;';
+  const op = document.createElement('input');
+  op.type = 'range'; op.min = '10'; op.max = '100'; op.value = Math.round(b.opacity * 100); op.style.flex = '1';
+  op.addEventListener('input', () => {
+    b.opacity = Math.max(0.1, op.value / 100);
+    const el = $('refBoardLayer').querySelector(`[data-id="${b.id}"]`);
+    if (el) el.style.opacity = b.opacity;
+  });
+  op.addEventListener('change', save);
+  orow.appendChild(olab); orow.appendChild(op);
+  m.appendChild(orow);
+
+  const sep = document.createElement('div');
+  sep.style.cssText = 'height:1px;background:#3f3f46;margin:4px 0;';
+  m.appendChild(sep);
+
+  const item = (label, fn) => {
+    const it = document.createElement('button');
+    it.textContent = label;
+    it.style.cssText = 'display:block;width:100%;text-align:left;padding:6px 8px;border-radius:5px;color:inherit;';
+    it.addEventListener('mouseenter', () => it.style.background = '#3f3f46');
+    it.addEventListener('mouseleave', () => it.style.background = 'transparent');
+    it.addEventListener('click', () => { fn(); hideMenu(); });
+    m.appendChild(it);
+    return it;
+  };
+  item(b.locked ? '🔓 고정 해제' : '🔒 고정', () => toggleLock(b.id));
+  item(b.flipX ? '↩ 좌우반전 해제' : '↔ 좌우반전', () => toggleFlip(b.id));
+  item('⤒ 맨 앞으로', () => toFront(b.id));
+  const del = item('✕ 삭제', () => remove(b.id));
+  del.style.color = '#f87171';
+
+  document.body.appendChild(m);
+}
+
+// 이미지 추가. fx/fy 생략 시 중앙 부근에 계단식 배치.
 function addImage(src, natW, natH, fx, fy) {
   const n = state.refBoards.length;
-  const defFw = 0.26;
   if (fx == null) fx = 0.38 + (n % 5) * 0.03;
   if (fy == null) fy = 0.18 + (n % 5) * 0.03;
   const b = {
     id: ++state._refBoardSeq,
     src, natW: natW || 0, natH: natH || 0,
-    fx, fy, fw: defFw, opacity: 1,
+    fx, fy, fw: 0.26, opacity: 1, locked: false, flipX: false,
   };
   state.refBoards.push(b);
   render(); save();
@@ -178,15 +230,22 @@ function toFront(id) {
   const i = state.refBoards.findIndex(x => x.id === id);
   if (i >= 0) { const [b] = state.refBoards.splice(i, 1); state.refBoards.push(b); render(); save(); }
 }
+function toggleLock(id) {
+  const b = state.refBoards.find(x => x.id === id);
+  if (b) { b.locked = !b.locked; render(); save(); if (typeof toast === 'function') toast(b.locked ? '고정됨' : '고정 해제'); }
+}
+function toggleFlip(id) {
+  const b = state.refBoards.find(x => x.id === id);
+  if (b) { b.flipX = !b.flipX; render(); save(); }
+}
 function clearAll() { state.refBoards = []; render(); save(); }
 function setEdit(on) { state.refBoardEdit = !!on; render(); }
 function toggleEdit() { setEdit(!state.refBoardEdit); }
-
 function save() { if (typeof autoSave === 'function') autoSave(); }
 
-// 파일 → data URL → 이미지 크기 측정 후 추가
+// 파일/블롭 → data URL → 이미지 크기 측정 후 추가
 function readFiles(files, fx, fy) {
-  const imgs = [...files].filter(f => /^image\//.test(f.type));
+  const imgs = [...files].filter(f => f && /^image\//.test(f.type));
   if (!imgs.length) return;
   imgs.forEach((file, k) => {
     const rd = new FileReader();
@@ -206,10 +265,26 @@ function readFiles(files, fx, fy) {
   });
 }
 
+// 클립보드 붙여넣기 → 이미지가 있으면 화면 중앙 부근에 참고로 추가
+function onPaste(e) {
+  if (!state.started) return;
+  const ae = document.activeElement;
+  if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;  // 입력 중이면 무시
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  const files = [];
+  for (const it of items) if (it.kind === 'file' && /^image\//.test(it.type)) { const f = it.getAsFile(); if (f) files.push(f); }
+  if (!files.length) return;
+  e.preventDefault();
+  readFiles(files, 0.37, 0.25);
+  if (typeof toast === 'function') toast('참고 이미지를 붙여넣었어요.');
+}
+
 // ---------- 직렬화 (io에서 사용) ----------
 function serialize() {
   return state.refBoards.map(b => ({
-    src: b.src, natW: b.natW, natH: b.natH, fx: b.fx, fy: b.fy, fw: b.fw, opacity: b.opacity,
+    src: b.src, natW: b.natW, natH: b.natH, fx: b.fx, fy: b.fy, fw: b.fw,
+    opacity: b.opacity, locked: !!b.locked, flipX: !!b.flipX,
   }));
 }
 function restore(arr) {
@@ -227,6 +302,7 @@ function restore(arr) {
         fx: num(b.fx, 0.4), fy: num(b.fy, 0.2),
         fw: Math.max(0.02, Math.min(2, num(b.fw, 0.26))),
         opacity: Math.max(0.1, Math.min(1, num(b.opacity, 1))),
+        locked: !!b.locked, flipX: !!b.flipX,
       });
     });
   }
@@ -242,8 +318,8 @@ function init() {
   }
   if (editBtn) editBtn.addEventListener('click', toggleEdit);
 
-  // 작업공간에 이미지 드래그&드롭 → 그 자리에 추가
   if (wrap) {
+    // 드래그&드롭
     wrap.addEventListener('dragover', e => {
       if (e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')) {
         e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
@@ -253,14 +329,24 @@ function init() {
       if (!e.dataTransfer || !e.dataTransfer.files.length) return;
       e.preventDefault();
       const R = wrapRect();
-      const fx = (e.clientX - R.left) / R.width - 0.13;   // 드롭 지점이 대략 타일 중앙
+      const fx = (e.clientX - R.left) / R.width - 0.13;
       const fy = (e.clientY - R.top) / R.height - 0.05;
       readFiles(e.dataTransfer.files, fx, fy);
     });
+    // 우클릭 메뉴 (편집 모드 off로 타일이 이벤트를 안 먹을 때도 좌표로 히트테스트)
+    wrap.addEventListener('contextmenu', e => {
+      const b = hitTest(e.clientX, e.clientY);
+      if (b) { e.preventDefault(); showTileMenu(b, e.clientX, e.clientY); }
+    });
   }
 
-  // 창 크기 변경 시 비율대로 재배치
-  window.addEventListener('resize', () => { if (state.refBoards.length) render(); });
+  // 클립보드 붙여넣기
+  window.addEventListener('paste', onPaste);
+
+  // 메뉴 닫기: 바깥 클릭 / ESC / 스크롤
+  window.addEventListener('pointerdown', () => hideMenu());
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') hideMenu(); });
+  window.addEventListener('resize', () => { hideMenu(); if (state.refBoards.length) render(); });
 
   // 로비가 사라지면(에디터 시작) 미니 바 노출
   const lobby = $('lobby');
@@ -279,6 +365,9 @@ function init() {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
 else init();
 
-DF.RefBoard = { init, render, addImage, remove, toFront, clearAll, setEdit, toggleEdit, serialize, restore, readFiles };
+DF.RefBoard = {
+  init, render, addImage, remove, toFront, toggleLock, toggleFlip,
+  clearAll, setEdit, toggleEdit, serialize, restore, readFiles, hitTest,
+};
 
 })(window.DF);
