@@ -111,6 +111,7 @@ window.DF = window.DF || {};
 - ✅ `src/render.js` — 완료. initCanvasSize/applyZoom/setZoom/render/renderOnion/drawGrid/getCell. `state`/`flattenFrame`는 `DF`에서 구조분해. `$`·캔버스 const(bgCanvas/mainCtx/onionCtxs/gridCtx 등)는 **옮기지 않음** — 여전히 인라인 top-level const이고, color.js가 `$`를 쓰던 것과 동일하게 "함수 호출 시점"에 전역 lexical로 해소됨(모든 모듈 참조하므로 맨 마지막 dom 모듈로 일괄 이전 예정). drawSelectionOverlay/renderFrameList/applyRefTransform는 인라인, 런타임 window 해소. color.js 다음·인라인 앞에 로드.
 - ✅ `src/tools.js` — 완료. 그리기 도구 전체(paintValue/applyTool/sampleRefColor/setPixelMirrored/paintCell/shadeCell/adjustBrightness/paintLine/bucketFill/도형(shapeCells·drawShapePreview·commitShape)/선택(drawSelectionOverlay·liftSelection·stampFloat·clearSelection·deleteSelection·selectAll·selContains·potraceRegion·magicWandSelect·copySelection·pasteClipboard)). sampleRefColor는 ref와 공유지만 tools에 둠. state/curPixels/curFrame/makeLayer/flattenFrame/pushUndo/render/setColor/pushPalette/hexToRgb/rgbToHex는 DF 구조분해. `$`·mainCtx·gridCtx·toast·selectTool·renderLayerList은 런타임 bare 해소. render.js 다음·인라인 앞 로드. vm 통합테스트 15개 통과.
 - ⬜ 다음: `src/image.js` (크롭 모달 + detectPixelScale/splitSpriteSheet/convertImageWithDot/convertImage/loadFile). 인라인 `const crop = {`부터 `function toast` 직전까지.
+- ➕ (신규 기능 모듈) `src/refboard.js` — 참고판(무드보드). 분리 작업과 무관한 새 기능이지만 동일한 DF 패턴으로 작성. `DF.RefBoard` 노출. state에 `refBoards[]`/`refBoardEdit` 추가, serializeProject/loadProjectData/autoSave에 연결. 작업공간(canvasWrap)에 참고 이미지 자유 배치(드래그/리사이즈/투명도/삭제/드래그드롭), 편집 off면 그 위로 그리기 통과.
 
 ## 진행 순서 (Claude Code)
 

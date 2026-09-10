@@ -65,6 +65,11 @@ const state = {
   panning: false, panStartX: 0, panStartY: 0, scrollStartX: 0, scrollStartY: 0,
   panX: 0, panY: 0,               // 캔버스 화면 이동 오프셋(px)
   refVisible: false,              // 레퍼런스 밑그림 표시 여부
+  // 참고판(무드보드): 작업공간에 자유 배치하는 참고 이미지 여러 장. 밑그림(ref)과 독립.
+  // 각 항목 {id, src, natW, natH, fx, fy, fw, opacity} — fx/fy/fw는 canvasWrap 대비 비율(0~1)
+  refBoards: [],
+  refBoardEdit: false,            // 참고판 편집 모드(드래그/리사이즈). off면 그 위로 그대로 그림
+  _refBoardSeq: 0,                // 참고판 id 시퀀스
   // 밑그림(레퍼런스) 확장 상태
   ref: {
     scale: 1, offsetX: 0, offsetY: 0,   // 확대/이동 (transform)

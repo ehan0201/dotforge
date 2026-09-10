@@ -595,7 +595,7 @@
             <p class="text-lg font-semibold text-indigo-200">이미지를 놓아 도트로 변환</p>
           </div>
         </div>
-        <div id="canvasWrap" class="flex-1 min-h-0 flex items-center justify-center overflow-hidden p-6">
+        <div id="canvasWrap" class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden p-6">
           <div id="canvasStage" class="relative shadow-2xl" style="transform:translate(0px,0px)">
             <canvas id="bgCanvas"    class="checker absolute inset-0 z-0"></canvas>
             <div id="refImage" class="absolute inset-0 z-[1] pointer-events-none hidden" style="width:100%;height:100%;opacity:0.5;background-repeat:no-repeat;background-position:center;background-size:contain;image-rendering:auto"></div>
@@ -606,6 +606,16 @@
             <canvas id="gridCanvas"  class="absolute inset-0 z-30 pointer-events-none"></canvas>
             <canvas id="sizer" class="opacity-0 pointer-events-none"></canvas>
           </div>
+          <!-- 참고판(무드보드): 작업공간 자유 배치 참고 이미지. 편집 off면 pointer-events:none로 그리기 통과 -->
+          <div id="refBoardLayer" class="absolute inset-0 z-40 pointer-events-none" style="overflow:visible"></div>
+          <!-- 참고판 미니 툴바 -->
+          <div id="refBoardBar" class="absolute top-2 left-2 z-50 hidden items-center gap-1 bg-zinc-900/90 border border-zinc-700 rounded-lg px-1.5 py-1 text-xs pointer-events-auto shadow-lg select-none">
+            <span class="px-1" title="참고판">🖼️</span>
+            <button id="refBoardAdd" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200">＋ 참고</button>
+            <button id="refBoardEditBtn" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300" title="편집 모드: 드래그로 이동·모서리로 크기조절. 끄면 그 위로 그림">편집</button>
+            <span id="refBoardCount" class="text-zinc-500 pr-1"></span>
+          </div>
+          <input id="refBoardFile" type="file" accept="image/*" multiple class="hidden">
         </div>
       </div>
     </div>
@@ -904,6 +914,7 @@
 <script src="src/color.js"></script>
 <script src="src/render.js"></script>
 <script src="src/tools.js"></script>
+<script src="src/refboard.js"></script>
 <script>
 /* =====================================================================
    Dotforge — 픽셀 애니메이션 에디터
@@ -2010,7 +2021,8 @@ function serializeProject() {
       layers: fr.layers.map(L => ({ name: L.name, opacity: L.opacity, visible: L.visible, blend: L.blend||'source-over', pixels: L.pixels }))
     })),
     palette: state.palette,
-    ref
+    ref,
+    refBoards: (window.DF && DF.RefBoard) ? DF.RefBoard.serialize() : []
   };
 }
 // 직렬화된 데이터를 state로 로드 (에디터로 진입). 외부 파일이므로 방어적으로 검증
@@ -2054,6 +2066,8 @@ function loadProjectData(d) {
 
   // 밑그림(레퍼런스) 복원
   restoreRef(d.ref);
+  // 참고판(무드보드) 복원
+  if (window.DF && DF.RefBoard) DF.RefBoard.restore(d.refBoards);
 
   initCanvasSize(); render(); renderLayerList();
   return true;
@@ -2125,6 +2139,8 @@ function autoSave() {
       // 용량 초과(주로 밑그림 이미지) → 밑그림 이미지 데이터만 빼고 재시도
       try {
         if (data.ref) data.ref = { ...data.ref, src: '' };
+        // 참고판 이미지(data URL)도 용량의 큰 부분 → 함께 제외
+        if (Array.isArray(data.refBoards)) data.refBoards = data.refBoards.map(b => ({ ...b, src: '' }));
         localStorage.setItem('dotforge_autosave', JSON.stringify(data));
       } catch(e2) { /* 그래도 실패하면 자동저장 생략 */ }
     }
