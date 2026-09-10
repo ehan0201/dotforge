@@ -108,7 +108,8 @@ window.DF = window.DF || {};
 
 - ✅ `src/state.js` — 완료. 전역 상태 객체 + 데이터 모델(makeEmptyPixels/makeLayer/makeEmptyFrame/curFrame/curLayer/curPixels/flattenFrame) + undo/redo를 분리. `DF`와 `window`에 병행 노출(전환기). index.html 인라인 `<script>` **앞**에 로드. `$`/캔버스 참조 const는 아직 인라인.
 - ✅ `src/color.js` — 완료. 색상 유틸(hsvToRgb/rgbToHsv/hexToRgb/rgbToHex) + setColor/updatePickerUI/applyPickerColor + 팔레트(pushPalette/renderPalette) + 즐겨찾기(load/save/add/remove/setFavSlot/renderFavorites) + `Palettes` 세트 모듈. state.js 다음, 인라인 앞에 로드. `$`는 인라인의 top-level const(전역 lexical 공유)로 런타임 해소.
-- ⬜ 다음: `src/render.js` (initCanvasSize/applyZoom/setZoom/render/renderOnion/drawGrid/getCell). 단, render/getCell은 `$`·캔버스 const(bgCanvas/mainCtx 등, 아직 인라인)에 강하게 의존 → 캔버스 참조 const도 함께 옮길지 검토 필요.
+- ✅ `src/render.js` — 완료. initCanvasSize/applyZoom/setZoom/render/renderOnion/drawGrid/getCell. `state`/`flattenFrame`는 `DF`에서 구조분해. `$`·캔버스 const(bgCanvas/mainCtx/onionCtxs/gridCtx 등)는 **옮기지 않음** — 여전히 인라인 top-level const이고, color.js가 `$`를 쓰던 것과 동일하게 "함수 호출 시점"에 전역 lexical로 해소됨(모든 모듈 참조하므로 맨 마지막 dom 모듈로 일괄 이전 예정). drawSelectionOverlay/renderFrameList/applyRefTransform는 인라인, 런타임 window 해소. color.js 다음·인라인 앞에 로드.
+- ⬜ 다음: `src/tools.js` (paintValue/applyTool/paintCell/shadeCell/paintLine/bucketFill/도형/선택 등). 인라인 `// ---------- 도구 ----------`부터. pushUndo(DF)·render(DF)·setColor(DF)·캔버스 const·`$` 등에 의존.
 
 ## 진행 순서 (Claude Code)
 
