@@ -23,6 +23,72 @@ const $ = (id) => document.getElementById(id);
 let dragId = null, mode = null;       // mode: 'move' | 'resize'
 let startX = 0, startY = 0, startFx = 0, startFy = 0, startFw = 0;
 let menuEl = null;                    // 우클릭 컨텍스트 메뉴
+let _lastSyncFrame = -1;              // GIF 프레임 동기화 캐시
+
+// ---------- GIF 디코드 / 프레임 동기화 ----------
+// data URL(base64) → 원본 바이트
+function dataURLToBytes(dataURL) {
+  const comma = dataURL.indexOf(','); if (comma < 0) return null;
+  const bin = atob(dataURL.slice(comma + 1));
+  const u = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+  return u;
+}
+// GIF를 프레임별 PNG data URL 배열로 디코드. WebCodecs ImageDecoder 사용, 없으면 null.
+async function decodeGifFrames(dataURL) {
+  if (typeof ImageDecoder === 'undefined') return null;
+  try {
+    const bytes = dataURLToBytes(dataURL); if (!bytes) return null;
+    const dec = new ImageDecoder({ data: bytes, type: 'image/gif' });
+    await dec.tracks.ready;
+    const track = dec.tracks.selectedTrack;
+    const count = Math.min(track ? track.frameCount : 1, 240);   // 과도한 메모리 방지 상한
+    const out = [];
+    const cv = document.createElement('canvas'); let ctx = null;
+    for (let i = 0; i < count; i++) {
+      const { image } = await dec.decode({ frameIndex: i });
+      if (!ctx) { cv.width = image.displayWidth || image.codedWidth; cv.height = image.displayHeight || image.codedHeight; ctx = cv.getContext('2d'); }
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(image, 0, 0);
+      out.push(cv.toDataURL('image/png'));
+      if (image.close) image.close();
+    }
+    if (dec.close) dec.close();
+    return out.length ? out : null;
+  } catch (e) { return null; }
+}
+// GIF 타일의 프레임을 (필요 시) 디코드해 b.frames에 채움
+function ensureGifFrames(b) {
+  if (!b.gif || b.frames || b._decoding) return;
+  b._decoding = true;
+  decodeGifFrames(b.src).then(fr => {
+    b._decoding = false;
+    if (fr && fr.length) { b.frames = fr; _lastSyncFrame = -1; render(); }
+    else { b.playMode = 'play'; render();            // 디코드 불가 → 자동재생 폴백
+           if (typeof toast === 'function') toast('이 브라우저에선 GIF 프레임 동기화가 안 돼 자동재생으로 넣었어요.'); }
+  });
+}
+// 현재 표시할 이미지 src (GIF 동기화면 현재 프레임 칸, 아니면 원본)
+function displaySrc(b) {
+  if (b.gif && b.playMode === 'sync' && b.frames && b.frames.length) {
+    const n = b.frames.length;
+    return b.frames[((state.current % n) + n) % n];
+  }
+  return b.src;
+}
+// 프레임 이동 시 GIF 동기화 타일만 가볍게 갱신 (메인 render가 끝에서 호출)
+function syncFrame() {
+  const gifs = state.refBoards.filter(b => b.gif && b.playMode === 'sync' && b.frames && b.frames.length);
+  if (!gifs.length) { _lastSyncFrame = state.current; return; }
+  if (state.current === _lastSyncFrame) return;
+  _lastSyncFrame = state.current;
+  const layer = $('refBoardLayer'); if (!layer) return;
+  gifs.forEach(b => {
+    const el = layer.querySelector(`[data-id="${b.id}"]`);
+    const img = el && el.querySelector('img');
+    if (img) { const want = displaySrc(b); if (img.getAttribute('src') !== want) img.src = want; }
+  });
+}
 
 function wrapRect() {
   const w = $('canvasWrap');
@@ -63,7 +129,7 @@ function render() {
     layoutTile(el, b, R);
 
     const img = document.createElement('img');
-    img.src = b.src;
+    img.src = displaySrc(b);
     img.draggable = false;
     img.style.cssText = 'width:100%;height:100%;object-fit:fill;display:block;pointer-events:none;-webkit-user-drag:none;' +
       (b.flipX ? 'transform:scaleX(-1);' : '');
@@ -201,6 +267,7 @@ function showTileMenu(b, cx, cy) {
   };
   item(b.locked ? '🔓 고정 해제' : '🔒 고정', () => toggleLock(b.id));
   item(b.flipX ? '↩ 좌우반전 해제' : '↔ 좌우반전', () => toggleFlip(b.id));
+  if (b.gif) item(b.playMode === 'sync' ? '▶ 자동재생으로' : '⧗ 내 프레임에 동기화', () => togglePlayMode(b.id));
   item('⤒ 맨 앞으로', () => toFront(b.id));
   const del = item('✕ 삭제', () => remove(b.id));
   del.style.color = '#f87171';
@@ -213,13 +280,16 @@ function addImage(src, natW, natH, fx, fy) {
   const n = state.refBoards.length;
   if (fx == null) fx = 0.38 + (n % 5) * 0.03;
   if (fy == null) fy = 0.18 + (n % 5) * 0.03;
+  const gif = /^data:image\/gif/i.test(src);
   const b = {
     id: ++state._refBoardSeq,
     src, natW: natW || 0, natH: natH || 0,
     fx, fy, fw: 0.26, opacity: 1, locked: false, flipX: false,
+    gif, frames: null, playMode: 'sync',    // gif면 기본 '내 프레임 동기화'(로토스코프)
   };
   state.refBoards.push(b);
   render(); save();
+  if (gif) ensureGifFrames(b);
   return b;
 }
 function remove(id) {
@@ -237,6 +307,15 @@ function toggleLock(id) {
 function toggleFlip(id) {
   const b = state.refBoards.find(x => x.id === id);
   if (b) { b.flipX = !b.flipX; render(); save(); }
+}
+function togglePlayMode(id) {
+  const b = state.refBoards.find(x => x.id === id);
+  if (!b || !b.gif) return;
+  b.playMode = b.playMode === 'sync' ? 'play' : 'sync';
+  if (b.playMode === 'sync') ensureGifFrames(b);
+  _lastSyncFrame = -1;
+  render(); save();
+  if (typeof toast === 'function') toast(b.playMode === 'sync' ? 'GIF를 내 프레임에 동기화' : 'GIF 자동재생');
 }
 function clearAll() { state.refBoards = []; render(); save(); }
 function setEdit(on) { state.refBoardEdit = !!on; render(); }
@@ -282,9 +361,10 @@ function onPaste(e) {
 
 // ---------- 직렬화 (io에서 사용) ----------
 function serialize() {
+  // 프레임(frames)은 저장하지 않음 — 원본 gif에서 불러올 때 재디코드(용량 절약)
   return state.refBoards.map(b => ({
     src: b.src, natW: b.natW, natH: b.natH, fx: b.fx, fy: b.fy, fw: b.fw,
-    opacity: b.opacity, locked: !!b.locked, flipX: !!b.flipX,
+    opacity: b.opacity, locked: !!b.locked, flipX: !!b.flipX, playMode: b.playMode,
   }));
 }
 function restore(arr) {
@@ -295,6 +375,7 @@ function restore(arr) {
     arr.slice(0, 40).forEach(b => {
       if (!b || typeof b.src !== 'string' || !/^data:image\//.test(b.src)) return;
       const num = (v, d) => (typeof v === 'number' && isFinite(v)) ? v : d;
+      const gif = /^data:image\/gif/i.test(b.src);
       state.refBoards.push({
         id: ++state._refBoardSeq,
         src: b.src,
@@ -303,10 +384,13 @@ function restore(arr) {
         fw: Math.max(0.02, Math.min(2, num(b.fw, 0.26))),
         opacity: Math.max(0.1, Math.min(1, num(b.opacity, 1))),
         locked: !!b.locked, flipX: !!b.flipX,
+        gif, frames: null, playMode: b.playMode === 'play' ? 'play' : 'sync',
       });
     });
   }
   render();
+  // gif 동기화 타일은 프레임 재디코드
+  state.refBoards.forEach(b => { if (b.gif && b.playMode === 'sync') ensureGifFrames(b); });
 }
 
 // ---------- 초기화 ----------
@@ -366,8 +450,8 @@ if (document.readyState === 'loading') document.addEventListener('DOMContentLoad
 else init();
 
 DF.RefBoard = {
-  init, render, addImage, remove, toFront, toggleLock, toggleFlip,
-  clearAll, setEdit, toggleEdit, serialize, restore, readFiles, hitTest,
+  init, render, addImage, remove, toFront, toggleLock, toggleFlip, togglePlayMode,
+  clearAll, setEdit, toggleEdit, serialize, restore, readFiles, hitTest, syncFrame, displaySrc,
 };
 
 })(window.DF);

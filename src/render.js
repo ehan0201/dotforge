@@ -84,6 +84,8 @@ function render() {
   const ub = $('undoBtn'), rb = $('redoBtn');
   if (ub) ub.disabled = state.undoStack.length === 0;
   if (rb) rb.disabled = state.redoStack.length === 0;
+  // 참고판 GIF를 현재 프레임에 동기화(로토스코프) — gif 동기화 타일 없으면 거의 무비용
+  if (window.DF && DF.RefBoard && DF.RefBoard.syncFrame) DF.RefBoard.syncFrame();
 }
 
 function renderOnion() {
