@@ -31,8 +31,15 @@ function applyTool(cell) {
     case 'wand':   magicWandSelect(cell); return;
     case 'picker': {
       let picked = null;
-      // Shift + 레퍼런스 표시 중이면 밑그림 색을 우선 추출
-      if (state.shiftHeld && state.refVisible && $('refImage').dataset.src) {
+      // Shift: 참고판 이미지 위라면 그 색을 최우선 추출 (셀 중심의 화면 좌표로 샘플)
+      if (state.shiftHeld && window.DF && DF.RefBoard && DF.RefBoard.sampleColorAt) {
+        const rect = mainCanvas.getBoundingClientRect();
+        const sx = rect.left + (cell.x + 0.5) / state.res * rect.width;
+        const sy = rect.top  + (cell.y + 0.5) / state.res * rect.height;
+        picked = DF.RefBoard.sampleColorAt(sx, sy);
+      }
+      // Shift + 레퍼런스(밑그림) 표시 중이면 밑그림 색 추출
+      if (!picked && state.shiftHeld && state.refVisible && $('refImage').dataset.src) {
         picked = sampleRefColor(cell.x, cell.y);
       }
       // 다음: Shift면 직전 프레임 합성색

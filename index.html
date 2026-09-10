@@ -72,6 +72,15 @@
       </button>
     </div>
 
+    <!-- 하이비트 전용 시작: 고해상도 + 고색상 정밀 작업(명암/AA 중심) -->
+    <button id="lobbyHibitBtn" class="w-full mb-6 bg-gradient-to-r from-fuchsia-600/20 to-amber-500/10 border border-fuchsia-500/50 rounded-xl p-4 flex items-center gap-3 text-left hover:from-fuchsia-600/30 transition-colors">
+      <span class="text-2xl">✨</span>
+      <div>
+        <div class="font-bold">하이비트로 시작 <span class="text-xs font-normal text-fuchsia-300/80 ml-1">Hi-Bit</span></div>
+        <div class="text-xs text-zinc-400 mt-0.5">96×96 고해상도 · 색 제한 없이 명암/안티에일리어싱 정밀 작업. 그리드 끄고 셰이딩 도구로 시작.</div>
+      </div>
+    </button>
+
     <!-- 직접 입력 + 이미지 불러오기 -->
     <div class="flex flex-col sm:flex-row gap-3">
       <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex-1">
@@ -605,9 +614,9 @@
             <canvas id="mainCanvas"  class="absolute inset-0 z-20 cursor-crosshair"></canvas>
             <canvas id="gridCanvas"  class="absolute inset-0 z-30 pointer-events-none"></canvas>
             <canvas id="sizer" class="opacity-0 pointer-events-none"></canvas>
+            <!-- 참고판(무드보드): stage 자식이라 캔버스 줌/팬을 그대로 따라감. overflow visible로 캔버스 밖까지 배치 가능 -->
+            <div id="refBoardLayer" class="absolute inset-0 z-40 pointer-events-none" style="overflow:visible"></div>
           </div>
-          <!-- 참고판(무드보드): 작업공간 자유 배치 참고 이미지. 편집 off면 pointer-events:none로 그리기 통과 -->
-          <div id="refBoardLayer" class="absolute inset-0 z-40 pointer-events-none" style="overflow:visible"></div>
           <!-- 참고판 미니 툴바 -->
           <div id="refBoardBar" class="absolute top-2 left-2 z-50 hidden items-center gap-1 bg-zinc-900/90 border border-zinc-700 rounded-lg px-1.5 py-1 text-xs pointer-events-auto shadow-lg select-none">
             <span class="px-1" title="참고판">🖼️</span>
@@ -2589,6 +2598,16 @@ function syncResPresets(res) {
 // 로비 버튼들
 document.querySelectorAll('.start-new').forEach(b =>
   b.onclick = () => enterEditor(parseInt(b.dataset.res)));
+// 하이비트 전용 시작: 96×96 + 그리드 끔 + 명암 도구 선택 (고색상 정밀 작업 플로우)
+$('lobbyHibitBtn').onclick = () => {
+  state.hiBit = true;
+  enterEditor(96);
+  state.showGrid = false;
+  const gt = $('gridToggle'); if (gt) gt.classList.remove('active');
+  drawGrid();
+  selectTool('shade');
+  toast('하이비트 모드 · 96×96 — 색 제한 없이 명암/AA 정밀 작업. 그리드는 꺼뒀어요.');
+};
 $('lobbyCreateBtn').onclick = () => {
   let v = parseInt($('lobbyResInput').value) || 32;
   enterEditor(Math.max(4, Math.min(512, v)));
