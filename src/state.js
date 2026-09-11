@@ -85,6 +85,8 @@ const state = {
   baseDisplay: 512,               // 줌 1.0 기준 캔버스 픽셀 크기
   started: false,            // 로비를 벗어나 에디터가 활성화됐는지
   hiBit: false,              // 하이비트 전용 프로젝트로 시작했는지(고해상도·고색상 정밀 작업)
+  // 글로우/조명(산나비풍 네온 발광 블룸). 밝은 픽셀이 번져 빛나며, 내보내기에도 구워짐.
+  glow: { enabled: false, threshold: 0.6, intensity: 0.9, radius: 2.2, tint: null },
 };
 
 // ---------- 데이터 모델: 프레임 = 여러 레이어 + 지속시간 ----------

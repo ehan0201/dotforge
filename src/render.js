@@ -86,6 +86,8 @@ function render() {
   if (rb) rb.disabled = state.redoStack.length === 0;
   // 참고판 GIF를 현재 프레임에 동기화(로토스코프) — gif 동기화 타일 없으면 거의 무비용
   if (window.DF && DF.RefBoard && DF.RefBoard.syncFrame) DF.RefBoard.syncFrame();
+  // 글로우/조명 실시간 미리보기 (꺼져 있으면 즉시 반환)
+  if (window.DF && DF.Glow && DF.Glow.render) DF.Glow.render();
 }
 
 function renderOnion() {

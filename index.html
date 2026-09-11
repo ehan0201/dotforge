@@ -593,6 +593,8 @@
         <button id="mirrorXBtn" data-icon="mirrorX" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-800" title="좌우 대칭 그리기"></button>
         <button id="mirrorYBtn" data-icon="mirrorY" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-800" title="상하 대칭 그리기"></button>
         <button id="clearBtn" data-icon="trash" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-800" title="전체 지우기"></button>
+        <div class="w-8 h-px bg-zinc-800 my-1"></div>
+        <button id="glowToggle" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="글로우/조명 (산나비풍 네온 발광) — 클릭해서 설정 · 내보내기에도 적용">💡</button>
       </aside>
 
       <!-- 캔버스 -->
@@ -612,6 +614,8 @@
             <canvas id="onion2" class="absolute inset-0 z-[6] pointer-events-none" style="opacity:.09"></canvas>
             <canvas id="onion1" class="absolute inset-0 z-10 pointer-events-none" style="opacity:.3"></canvas>
             <canvas id="mainCanvas"  class="absolute inset-0 z-20 cursor-crosshair"></canvas>
+            <!-- 글로우/조명: 밝은 픽셀의 블룸을 screen 블렌드로 얹음 (실시간 미리보기) -->
+            <canvas id="glowCanvas"  class="absolute inset-0 z-[22] pointer-events-none" style="mix-blend-mode:screen;display:none"></canvas>
             <canvas id="gridCanvas"  class="absolute inset-0 z-30 pointer-events-none"></canvas>
             <canvas id="sizer" class="opacity-0 pointer-events-none"></canvas>
             <!-- 참고판(무드보드): stage 자식이라 캔버스 줌/팬을 그대로 따라감. overflow visible로 캔버스 밖까지 배치 가능 -->
@@ -924,6 +928,7 @@
 <script src="src/render.js"></script>
 <script src="src/tools.js"></script>
 <script src="src/refboard.js"></script>
+<script src="src/glow.js"></script>
 <script>
 /* =====================================================================
    Dotforge — 픽셀 애니메이션 에디터
@@ -1993,6 +1998,8 @@ function frameToCanvas(frame, scale = 1) {
   const flat = flattenFrame(frame);   // 합성 결과 내보내기
   for (let i = 0; i < flat.length; i++)
     if (flat[i]) { cx.fillStyle = flat[i]; cx.fillRect((i%state.res)*scale, Math.floor(i/state.res)*scale, scale, scale); }
+  // 글로우/조명이 켜져 있으면 결과에도 구움 (PNG·시트·GIF 공통)
+  if (window.DF && DF.Glow && DF.Glow.bake) DF.Glow.bake(cx, frame, scale);
   return c;
 }
 function download(canvas, name) {
@@ -2031,7 +2038,8 @@ function serializeProject() {
     })),
     palette: state.palette,
     ref,
-    refBoards: (window.DF && DF.RefBoard) ? DF.RefBoard.serialize() : []
+    refBoards: (window.DF && DF.RefBoard) ? DF.RefBoard.serialize() : [],
+    glow: { ...state.glow }
   };
 }
 // 직렬화된 데이터를 state로 로드 (에디터로 진입). 외부 파일이므로 방어적으로 검증
@@ -2077,6 +2085,18 @@ function loadProjectData(d) {
   restoreRef(d.ref);
   // 참고판(무드보드) 복원
   if (window.DF && DF.RefBoard) DF.RefBoard.restore(d.refBoards);
+  // 글로우/조명 복원
+  if (d.glow && typeof d.glow === 'object') {
+    const gd = d.glow, num = (v, dfl, lo, hi) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : dfl;
+    state.glow = {
+      enabled: !!gd.enabled,
+      threshold: num(gd.threshold, 0.6, 0.05, 1),
+      intensity: num(gd.intensity, 0.9, 0, 3),
+      radius: num(gd.radius, 2.2, 0.2, 12),
+      tint: (typeof gd.tint === 'string' && /^#[0-9a-fA-F]{6}$/.test(gd.tint)) ? gd.tint : null,
+    };
+    if (window.DF && DF.Glow) DF.Glow.enable(state.glow.enabled);
+  }
 
   initCanvasSize(); render(); renderLayerList();
   return true;
@@ -2606,7 +2626,10 @@ $('lobbyHibitBtn').onclick = () => {
   const gt = $('gridToggle'); if (gt) gt.classList.remove('active');
   drawGrid();
   selectTool('shade');
-  toast('하이비트 모드 · 96×96 — 색 제한 없이 명암/AA 정밀 작업. 그리드는 꺼뒀어요.');
+  // 산나비풍 네온 발광 기본 On
+  state.glow = { enabled: true, threshold: 0.55, intensity: 1.0, radius: 2.6, tint: null };
+  if (window.DF && DF.Glow) DF.Glow.enable(true);
+  toast('하이비트 모드 · 96×96 · 글로우 On — 밝은 색이 네온처럼 빛나요(💡에서 조절). 그리드는 꺼뒀어요.');
 };
 $('lobbyCreateBtn').onclick = () => {
   let v = parseInt($('lobbyResInput').value) || 32;
