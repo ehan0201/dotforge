@@ -223,6 +223,34 @@ function adjustBrightness(hex, delta) {
   return rgbToHex(r, g, b);
 }
 
+// 림라이트: 광원 방향의 가장자리 픽셀을 밝게(자동=따뜻한 하이라이트, 또는 지정색)
+const RIM_DIRS = { TL:[-1,-1], T:[0,-1], TR:[1,-1], L:[-1,0], R:[1,0], BL:[-1,1], B:[0,1], BR:[1,1] };
+function rimLightApply() {
+  const f = curPixels(), res = state.res;
+  const dir = RIM_DIRS[state.rimDir] || RIM_DIRS.TL;
+  const lx = dir[0], ly = dir[1];
+  const th = Math.max(1, Math.min(4, state.rimThickness || 1));
+  // 광원 방향으로 th칸 안에 빈칸/경계가 있으면 가장자리(림)
+  const targets = [];
+  for (let y = 0; y < res; y++) for (let x = 0; x < res; x++) {
+    const i = y * res + x; if (!f[i]) continue;
+    let edge = false;
+    for (let t = 1; t <= th; t++) {
+      const nx = x + lx * t, ny = y + ly * t;
+      if (nx < 0 || ny < 0 || nx >= res || ny >= res || !f[ny * res + nx]) { edge = true; break; }
+    }
+    if (edge) {
+      const col = state.rimAuto ? hueShiftShade(f[i], 0.9, state.shadeHueAmount) : state.rimColor;
+      targets.push([i, col]);
+    }
+  }
+  if (!targets.length) { if (typeof toast === 'function') toast('림라이트를 적용할 그림이 이 레이어에 없어요.'); return; }
+  pushUndo();
+  for (const [i, col] of targets) f[i] = col;
+  render(); renderLayerList();
+  if (typeof toast === 'function') toast(`림라이트 적용 (${targets.length}칸, 광원 ${state.rimDir}).`);
+}
+
 // 두 칸(from → to) 사이를 빈틈없이 칠함 (Bresenham 직선 알고리즘)
 // 빠르게 그어 점이 띄엄띄엄 찍히는 것 방지
 function paintLine(from, to) {
@@ -510,7 +538,7 @@ function pasteClipboard() {
 // ---------- 노출 ----------
 const exported = {
   paintValue, applyTool, sampleRefColor, setPixelMirrored, paintCell,
-  shadeCell, adjustBrightness, hueShiftShade, paintLine, bucketFill,
+  shadeCell, adjustBrightness, hueShiftShade, rimLightApply, paintLine, bucketFill,
   shapeCells, drawShapePreview, commitShape,
   drawSelectionOverlay, liftSelection, stampFloat, clearSelection, deleteSelection,
   selectAll, selContains, potraceRegion, magicWandSelect, copySelection, pasteClipboard,

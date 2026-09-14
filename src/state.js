@@ -43,6 +43,11 @@ const state = {
   shadeHue: true,                 // 휴 시프트 명암(하이비트식): 그림자=차갑게/하이라이트=따뜻하게
   shadeHueAmount: 28,             // 색조 이동 최대 각도(도)
   potraceMode: 'newlayer',        // 부분 도트화 결과: 새 레이어
+  // 림라이트(외곽 테두리광): 광원 방향의 가장자리 픽셀을 밝게
+  rimDir: 'TL',                   // TL,T,TR,L,R,BL,B,BR
+  rimColor: '#fff3c0',           // 지정 림 색(자동 끄면 사용)
+  rimThickness: 1,               // 림 두께(px)
+  rimAuto: true,                 // 자동 색(픽셀 색의 따뜻한 하이라이트)
   defaultDuration: 100,           // 새 프레임 기본 지속시간(ms)
   useDuration: false,             // true면 프레임별 duration으로 재생, false면 균일 FPS
   playMode: 'loop',               // loop | pingpong | once

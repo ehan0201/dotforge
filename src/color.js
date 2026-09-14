@@ -328,9 +328,29 @@ const Palettes = (function(){
   return { init, renderPicker, createSet, loadToFavorites, get currentName(){return current().name;} };
 })();
 
+// 하이비트 팔레트 램프: 기준색에서 휴 시프트된 명암 램프 생성 (그림자=차갑게, 하이라이트=따뜻하게)
+function rampFromColor(hex, count) {
+  count = count || 5; if (count < 3) count = 3; if (count % 2 === 0) count++;
+  const half = (count - 1) / 2;
+  const rgb = hexToRgb(hex); if (!rgb) return [hex];
+  const rot = (cur, target, step) => { let d = ((target - cur + 540) % 360) - 180; d = Math.max(-step, Math.min(step, d)); return (cur + d + 360) % 360; };
+  const out = [];
+  for (let k = -half; k <= half; k++) {
+    if (k === 0) { out.push(hex.toLowerCase()); continue; }
+    let [h, s, v] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+    const amt = Math.abs(k) / half;   // 0~1
+    const maxDeg = 34;
+    if (k < 0) { h = rot(h, 240, maxDeg * amt); v = v * (1 - 0.82 * amt); s = Math.min(1, s + 0.15 * amt); }
+    else { h = rot(h, 50, maxDeg * amt); v = v + (1 - v) * 0.82 * amt; s = Math.max(0, s - 0.12 * amt); }
+    const o = hsvToRgb(h, s, v);
+    out.push(rgbToHex(o[0], o[1], o[2]));
+  }
+  return out;
+}
+
 // ---------- 노출 ----------
 const exported = {
-  hsvToRgb, rgbToHsv, hexToRgb, rgbToHex,
+  hsvToRgb, rgbToHsv, hexToRgb, rgbToHex, rampFromColor,
   setColor, updatePickerUI, applyPickerColor, pushPalette, renderPalette,
   loadFavorites, saveFavorites, addFavorite, removeFavorite, setFavSlot, renderFavorites,
   Palettes,

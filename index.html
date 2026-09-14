@@ -608,6 +608,7 @@
         <button data-tool="select" data-icon="select" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="선택 (M) · 드래그로 영역선택, 다시 드래그로 이동"></button>
         <button data-tool="shade" data-icon="shade" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="명암 · 원형으로 음영 (재클릭=설정)"></button>
         <button data-tool="potrace" data-icon="potrace" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="부분 도트화 · 밑그림 영역을 드래그해 도트로"></button>
+        <button data-tool="rimlight" data-icon="rimlight" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="림라이트 · 광원 방향 가장자리를 밝게 (재클릭=설정)"></button>
         <div class="w-8 h-px bg-zinc-800 my-1"></div>
         <button id="gridToggle" data-icon="grid" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-800 active" title="그리드 토글"></button>
         <button id="mirrorXBtn" data-icon="mirrorX" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-800" title="좌우 대칭 그리기"></button>
@@ -734,6 +735,7 @@
           <input type="text" id="hexInput" value="FFFFFF" maxlength="6" class="w-full bg-transparent px-1 py-1.5 text-xs mono uppercase focus:outline-none">
         </div>
         <button id="favAddBtn" class="w-9 h-9 rounded bg-zinc-800 hover:bg-zinc-700 text-sm shrink-0" title="즐겨찾기에 추가">★</button>
+        <button id="rampBtn" class="w-9 h-9 rounded bg-zinc-800 hover:bg-zinc-700 text-sm shrink-0" title="현재 색으로 하이비트 명암 램프 만들어 즐겨찾기에 추가 (휴 시프트)">🎚</button>
       </div>
 
       <!-- 지우개(투명) 모드: 모든 그리기 도구가 지우기로 -->
@@ -3005,6 +3007,7 @@ const ICON_PATHS = {
   shade:    '<circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/>',
   wand:     '<path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9h2"/><path d="M20 9h2"/><path d="M17.8 11.8L19 13"/><path d="M15 9h0"/><path d="M17.8 6.2L19 5"/><path d="M3 21l9-9"/><path d="M12.2 6.2L11 5"/>',
   potrace:  '<rect x="3" y="3" width="8" height="8" rx="1"/><path d="M14 4h7v7" stroke-dasharray="2 2"/><path d="M14 21h7v-7" stroke-dasharray="2 2"/><rect x="3" y="14" width="4" height="4"/><rect x="8" y="14" width="3" height="3"/></rect>',
+  rimlight: '<circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
   fill:     '<rect x="4" y="4" width="16" height="16" rx="1" fill="currentColor"/>',
   outline:  '<rect x="4" y="4" width="16" height="16" rx="1"/>',
   grid:     '<path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>',
@@ -3087,6 +3090,15 @@ const TOOL_SETTINGS = {
     ],
   },
   potrace: { stats: () => [['결과', '새 레이어']], controls: [] },
+  rimlight: {
+    stats: () => [['광원', state.rimDir], ['두께', state.rimThickness+'px'], ['색', state.rimAuto?'자동(따뜻)':state.rimColor]],
+    controls: [
+      { type:'select', label:'광원 방향', options:[['TL','↖ 좌상'],['T','↑ 위'],['TR','↗ 우상'],['L','← 좌'],['R','→ 우'],['BL','↙ 좌하'],['B','↓ 아래'],['BR','↘ 우하']], get:()=>state.rimDir, set:v=>{ state.rimDir=v; }, hint:'빛이 오는 방향의 가장자리가 밝아짐' },
+      { type:'range', label:'두께', min:1, max:4, step:1, get:()=>state.rimThickness, set:v=>{ state.rimThickness=v; }, unit:'px' },
+      { type:'toggle', label:'자동 색(따뜻한 하이라이트)', get:()=>state.rimAuto, set:v=>{ state.rimAuto=v; }, hint:'끄면 아래 지정색 사용' },
+      { type:'color', label:'림 색', get:()=>state.rimColor, set:v=>{ state.rimColor=v; } },
+    ],
+  },
 };
 function symText(){ const a=[]; if(state.mirrorX)a.push('좌우'); if(state.mirrorY)a.push('상하'); return a.length?a.join('+'):'off'; }
 function syncBrushUI(){ const s=$('brushSizeSlider'), v=$('brushSizeVal'); if(s)s.value=state.brushSize; if(v)v.textContent=state.brushSize+' px'; }
@@ -3127,7 +3139,7 @@ function openToolPopover(el, toolId) {
   if (!cfg || !cfg.controls || !cfg.controls.length) { toast('이 도구는 세부 설정이 없어요.'); return; }
   hideTooltip();
   const pop = $('toolPopover');
-  const names = { pen:'펜', eraser:'지우개', bucket:'페인트 통', wand:'마법봉', rect:'사각형', ellipse:'원', shade:'명암' };
+  const names = { pen:'펜', eraser:'지우개', bucket:'페인트 통', wand:'마법봉', rect:'사각형', ellipse:'원', shade:'명암', rimlight:'림라이트' };
   $('toolPopTitle').innerHTML = `${svgIcon(toolId,16)} <span>${names[toolId]||toolId} 설정</span>`;
   const body = $('toolPopBody'); body.innerHTML = '';
   cfg.controls.forEach((ctrl, i) => {
@@ -3151,6 +3163,25 @@ function openToolPopover(el, toolId) {
         ${ctrl.hint?`<p class="text-[9px] text-zinc-600 mt-0.5">${ctrl.hint}</p>`:''}`;
       body.appendChild(wrap);
       wrap.querySelector('#tpCtrl'+i).addEventListener('change', e => ctrl.set(e.target.checked));
+    } else if (ctrl.type === 'select') {
+      const opts = (ctrl.options||[]).map(([v,t])=>`<option value="${v}" ${ctrl.get()===v?'selected':''}>${t}</option>`).join('');
+      wrap.innerHTML = `
+        <label class="flex items-center justify-between text-[11px] text-zinc-300 gap-2">
+          <span>${ctrl.label}</span>
+          <select id="tpCtrl${i}" class="bg-zinc-800 border border-zinc-700 rounded px-1.5 py-1 text-[11px]">${opts}</select>
+        </label>
+        ${ctrl.hint?`<p class="text-[9px] text-zinc-600 mt-0.5">${ctrl.hint}</p>`:''}`;
+      body.appendChild(wrap);
+      wrap.querySelector('#tpCtrl'+i).addEventListener('change', e => ctrl.set(e.target.value));
+    } else if (ctrl.type === 'color') {
+      wrap.innerHTML = `
+        <label class="flex items-center justify-between text-[11px] text-zinc-300">
+          <span>${ctrl.label}</span>
+          <input type="color" id="tpCtrl${i}" value="${ctrl.get()}" class="w-8 h-6 bg-transparent border border-zinc-700 rounded cursor-pointer">
+        </label>
+        ${ctrl.hint?`<p class="text-[9px] text-zinc-600 mt-0.5">${ctrl.hint}</p>`:''}`;
+      body.appendChild(wrap);
+      wrap.querySelector('#tpCtrl'+i).addEventListener('input', e => ctrl.set(e.target.value));
     }
   });
   pop.classList.remove('hidden');
@@ -3207,6 +3238,7 @@ const TOOLS = [
   { id:'select', icon:'select',  name:'선택' },
   { id:'shade',  icon:'shade',   name:'명암' },
   { id:'potrace',icon:'potrace', name:'부분 도트화' },
+  { id:'rimlight',icon:'rimlight', name:'림라이트' },
 ];
 function toolMeta(id){ return TOOLS.find(t=>t.id===id) || TOOLS[0]; }
 
@@ -3381,12 +3413,13 @@ const TOOLBAR_TIPS = {
   ellipse:'타원. Shift로 정원 (O)', select:'영역 선택·이동 (M)',
   wand:'비슷한 색을 전체에서 모두 선택', potrace:'밑그림 영역을 드래그해 도트로 (새 레이어)',
   shade:'원형으로 명암을 넣습니다 (재클릭=세기·방향 설정)',
+  rimlight:'림라이트: 클릭하면 광원 방향 가장자리를 밝게 (재클릭=방향·색 설정)',
   grid:'격자 표시 켜기/끄기', mirrorX:'좌우 대칭 그리기', mirrorY:'상하 대칭 그리기', trash:'현재 레이어 전체 지우기',
 };
 document.querySelectorAll('#toolbar [data-icon]').forEach(b => {
   const ic = b.dataset.icon;
   b.innerHTML = svgIcon(ic, 20);
-  const name = { pen:'펜',eraser:'지우개',bucket:'페인트 통',picker:'스포이드',line:'직선',rect:'사각형',ellipse:'원',select:'선택',wand:'마법봉',shade:'명암',potrace:'부분 도트화',grid:'그리드',mirrorX:'좌우대칭',mirrorY:'상하대칭',trash:'전체 지우기' }[ic] || '';
+  const name = { pen:'펜',eraser:'지우개',bucket:'페인트 통',picker:'스포이드',line:'직선',rect:'사각형',ellipse:'원',select:'선택',wand:'마법봉',shade:'명암',potrace:'부분 도트화',rimlight:'림라이트',grid:'그리드',mirrorX:'좌우대칭',mirrorY:'상하대칭',trash:'전체 지우기' }[ic] || '';
   b.removeAttribute('title');
   const toolId = b.dataset.tool;   // 도구 버튼이면 스탯 표시
   b.addEventListener('mouseenter', () => {
@@ -3443,6 +3476,8 @@ mainCanvas.addEventListener('pointerdown', e => {
   }
   // 마법봉: 클릭 즉시 선택 (드래그 없음, pushUndo는 함수 내부에서)
   if (state.tool === 'wand') { if (cell) applyTool(cell); return; }
+  // 림라이트: 클릭 즉시 현재 레이어에 적용 (셀 불필요)
+  if (state.tool === 'rimlight') { rimLightApply(); return; }
   // 펜/지우개/통/스포이드
   if (state.tool !== 'picker') pushUndo();
   state.drawing = true;
@@ -3596,6 +3631,11 @@ $('hexInput').addEventListener('keydown', e => { if (e.key === 'Enter') e.target
 
 // 즐겨찾기 추가 버튼
 $('favAddBtn').onclick = () => addFavorite(state.color);
+$('rampBtn').onclick = () => {
+  const ramp = DF.rampFromColor(state.color, 5);
+  ramp.forEach(c => addFavorite(c));
+  toast('하이비트 명암 램프 5색을 즐겨찾기에 추가했어요 (그림자=차갑게 · 하이라이트=따뜻하게).');
+};
 
 // 지우개(투명) 모드 토글
 function setEraseMode(on) {
