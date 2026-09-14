@@ -184,32 +184,47 @@ function hitTest(clientX, clientY) {
   return null;
 }
 
-// 이미지 위 한 점의 색 추출 (Shift+스포이드). 표시 중인 <img>를 그대로 캔버스에 그려 픽셀을 읽음.
+// 이미지 위 한 점의 색 추출 (Shift+스포이드 / 부분도트화). 표시 중인 <img>를 캔버스에 그려 픽셀을 읽음.
+// 픽셀 데이터는 타일별로 캐시(부분도트화가 셀마다 호출해도 이미지 재드로우 안 함).
+let _sampleCache = null;   // {id, src, iw, ih, data}
 function sampleColorAt(clientX, clientY) {
   const b = hitTest(clientX, clientY); if (!b) return null;
   try {
     const R = stageRect();
-    let u = ((clientX - R.left) / R.width - b.fx) / b.fw;          // 타일 내 가로 비율
-    let v = ((clientY - R.top) / R.height - b.fy) / heightFrac(b); // 세로 비율
+    let u = ((clientX - R.left) / R.width - b.fx) / b.fw;
+    let v = ((clientY - R.top) / R.height - b.fy) / heightFrac(b);
     if (u < 0 || u > 1 || v < 0 || v > 1) return null;
-    if (b.flipX) u = 1 - u;                                        // 좌우반전 반영
+    if (b.flipX) u = 1 - u;
     const layer = $('refBoardLayer');
     const el = layer && layer.querySelector(`[data-id="${b.id}"]`);
     const img = el && el.querySelector('img');
     if (!img || !img.naturalWidth) return null;
     const iw = img.naturalWidth, ih = img.naturalHeight;
-    if (!_sampleCanvas) _sampleCanvas = document.createElement('canvas');
-    const c = _sampleCanvas; c.width = iw; c.height = ih;
-    const ctx = c.getContext('2d', { willReadFrequently: true });
-    ctx.clearRect(0, 0, iw, ih);
-    ctx.drawImage(img, 0, 0, iw, ih);
+    const curSrc = img.getAttribute('src');
+    if (!_sampleCache || _sampleCache.id !== b.id || _sampleCache.src !== curSrc || _sampleCache.iw !== iw) {
+      if (!_sampleCanvas) _sampleCanvas = document.createElement('canvas');
+      const c = _sampleCanvas; c.width = iw; c.height = ih;
+      const ctx = c.getContext('2d', { willReadFrequently: true });
+      ctx.clearRect(0, 0, iw, ih);
+      ctx.drawImage(img, 0, 0, iw, ih);
+      _sampleCache = { id: b.id, src: curSrc, iw, ih, data: ctx.getImageData(0, 0, iw, ih).data };
+    }
+    const d = _sampleCache.data;
     const px = Math.max(0, Math.min(iw - 1, Math.floor(u * iw)));
     const py = Math.max(0, Math.min(ih - 1, Math.floor(v * ih)));
-    const d = ctx.getImageData(px, py, 1, 1).data;
-    if (d[3] < 40) return null;
-    return '#' + [d[0], d[1], d[2]].map(x => x.toString(16).padStart(2, '0')).join('');
+    const o = (py * iw + px) * 4;
+    if (d[o + 3] < 40) return null;
+    return '#' + [d[o], d[o + 1], d[o + 2]].map(x => x.toString(16).padStart(2, '0')).join('');
   } catch (e) { return null; }
 }
+// 캔버스 셀(도트) 좌표의 참고판 색 — 부분도트화에서 사용 (mainCanvas==stage inset0 이므로 stageRect 기준)
+function sampleCellColor(cellX, cellY) {
+  const R = stageRect();
+  const sx = R.left + (cellX + 0.5) / state.res * R.width;
+  const sy = R.top + (cellY + 0.5) / state.res * R.height;
+  return sampleColorAt(sx, sy);
+}
+function hasImages() { return state.refBoards.length > 0; }
 
 // ---------- 드래그/리사이즈 ----------
 function beginDrag(e, id, m) {
@@ -435,7 +450,9 @@ function init() {
 
   if (wrap) {
     wrap.addEventListener('dragover', e => {
-      if (e.dataTransfer && [...e.dataTransfer.items].some(i => i.kind === 'file')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+      // dragover 중엔 items 접근이 브라우저마다 불안정 → types로 파일 여부 판단(안정적)
+      const t = e.dataTransfer && e.dataTransfer.types;
+      if (t && (Array.prototype.indexOf.call(t, 'Files') !== -1)) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
     });
     wrap.addEventListener('drop', e => {
       if (!e.dataTransfer || !e.dataTransfer.files.length) return;
@@ -473,7 +490,8 @@ else init();
 
 DF.RefBoard = {
   init, render, addImage, remove, toFront, toggleLock, toggleFlip, setPlayMode,
-  clearAll, setEdit, toggleEdit, serialize, restore, readFiles, hitTest, syncFrame, displaySrc, sampleColorAt,
+  clearAll, setEdit, toggleEdit, serialize, restore, readFiles, hitTest, syncFrame, displaySrc,
+  sampleColorAt, sampleCellColor, hasImages,
 };
 
 })(window.DF);

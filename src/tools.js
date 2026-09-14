@@ -378,8 +378,11 @@ function selContains(cell) {
 // 부분 도트화: 선택 영역(도트 좌표)의 밑그림을 도트화해 새 레이어에 만든다.
 // 밑그림 원본은 건드리지 않음. sampleRefColor와 동일한 픽셀 추출을 영역 전체에 적용.
 function potraceRegion(sel) {
-  if (!state.refVisible || !$('refImage').dataset.src) {
-    toast('먼저 밑그림을 불러오고 표시를 켜주세요.'); return;
+  const RB = window.DF && DF.RefBoard;
+  const hasBoard = RB && RB.hasImages && RB.hasImages();
+  const hasRefImg = state.refVisible && $('refImage').dataset.src;
+  if (!hasBoard && !hasRefImg) {
+    toast('먼저 참고 이미지를 올려주세요 (참고판 또는 밑그림).'); return;
   }
   const res = state.res;
   const x0 = Math.max(0, sel.x0), y0 = Math.max(0, sel.y0);
@@ -393,12 +396,14 @@ function potraceRegion(sel) {
   const px = layer.pixels;
   let filled = 0;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
-    const col = sampleRefColor(x, y);   // 그 도트 위치의 밑그림 색 (투명이면 null)
+    // 참고판(무드보드) 이미지 우선, 없으면 기존 밑그림
+    let col = hasBoard ? RB.sampleCellColor(x, y) : null;
+    if (!col && hasRefImg) col = sampleRefColor(x, y);
     if (col) { px[y*res + x] = col; filled++; }
   }
   render(); renderLayerList();
   if (filled) toast(`영역을 도트화해 새 레이어에 만들었어요 (${filled}칸).`);
-  else toast('그 영역에서 밑그림 색을 찾지 못했어요.');
+  else toast('그 영역에서 참고 이미지 색을 찾지 못했어요. (이미지가 캔버스 위에 겹쳐 있어야 해요)');
 }
 function magicWandSelect(cell) {
   const f = curPixels(), res = state.res;

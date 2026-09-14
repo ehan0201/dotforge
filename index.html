@@ -3505,17 +3505,35 @@ window.addEventListener('pointercancel', endStroke);
 function drawBrushHover(cell) {
   drawGrid();   // 격자 복원(이전 미리보기 지움)
   if (!cell || state.playing) return;
-  if (state.tool !== 'pen' && state.tool !== 'eraser') return;
-  if (!state.showGrid) { gridCanvas.style.display = 'block'; gridCtx.clearRect(0,0,state.display,state.display); }
-  const s = state.brushSize, off = Math.floor((s - 1) / 2);
+  if (state.tool !== 'pen' && state.tool !== 'eraser' && state.tool !== 'shade') return;
+  // 그리드가 꺼져 있으면 오버레이용으로 캔버스를 살리고 내부 해상도를 display에 맞춘다
+  // (drawGrid가 grid off일 때 일찍 return해 width가 안 맞으면 외곽선이 늘어나고 어긋남)
+  if (!state.showGrid) {
+    gridCanvas.style.display = 'block';
+    if (gridCanvas.width !== state.display) {
+      gridCanvas.width = state.display; gridCanvas.height = state.display;
+      gridCanvas.style.width = state.display + 'px'; gridCanvas.style.height = state.display + 'px';
+    }
+    gridCtx.clearRect(0, 0, state.display, state.display);
+  }
   const cellPx = state.display / state.res;
-  const gx = (cell.x - off) * cellPx, gy = (cell.y - off) * cellPx, gw = s * cellPx;
+  const erasing = state.tool === 'eraser';
+  const stroke = erasing ? 'rgba(255,120,120,0.9)' : (state.tool === 'shade' ? 'rgba(120,200,255,0.9)' : 'rgba(255,255,255,0.9)');
   gridCtx.save();
-  gridCtx.strokeStyle = state.tool === 'eraser' ? 'rgba(255,120,120,0.9)' : 'rgba(255,255,255,0.9)';
+  gridCtx.strokeStyle = stroke;
   gridCtx.lineWidth = 1.5;
-  gridCtx.strokeRect(gx + 0.5, gy + 0.5, gw, gw);
-  gridCtx.fillStyle = state.tool === 'eraser' ? 'rgba(255,120,120,0.12)' : (state.color + '33');
-  gridCtx.fillRect(gx, gy, gw, gw);
+  if (state.tool === 'shade') {
+    // 명암은 원형 반경 = 브러시 크기 (cell 중심 기준)
+    const r = Math.max(1, state.brushSize) * cellPx;
+    const cx = (cell.x + 0.5) * cellPx, cy = (cell.y + 0.5) * cellPx;
+    gridCtx.beginPath(); gridCtx.arc(cx, cy, r, 0, Math.PI * 2); gridCtx.stroke();
+  } else {
+    const s = state.brushSize, off = Math.floor((s - 1) / 2);
+    const gx = (cell.x - off) * cellPx, gy = (cell.y - off) * cellPx, gw = s * cellPx;
+    gridCtx.strokeRect(gx + 0.5, gy + 0.5, gw, gw);
+    gridCtx.fillStyle = erasing ? 'rgba(255,120,120,0.12)' : (state.color + '33');
+    gridCtx.fillRect(gx, gy, gw, gw);
+  }
   gridCtx.restore();
 }
 
