@@ -448,6 +448,7 @@
       <button id="expTabPng" class="exp-tab flex-1 text-[11px] py-1.5 rounded font-medium transition-colors">🖼 현재 프레임 (PNG)</button>
       <button id="expTabSheet" class="exp-tab flex-1 text-[11px] py-1.5 rounded font-medium transition-colors">🎞️ 시트 (PNG)</button>
       <button id="expTabGif" class="exp-tab flex-1 text-[11px] py-1.5 rounded font-medium transition-colors">▶ GIF</button>
+      <button id="expTabUnity" class="exp-tab flex-1 text-[11px] py-1.5 rounded font-medium transition-colors">🎮 Unity</button>
     </div>
 
     <!-- 미리보기 정보 -->
@@ -468,6 +469,25 @@
         열 수 <input type="number" id="expSheetCols" min="1" max="64" value="0" class="w-16 bg-zinc-800 border border-zinc-700 rounded px-2 py-1 mono text-center">
         <span class="text-zinc-600">(0 = 한 줄로)</span>
       </label>
+    </div>
+
+    <!-- 유니티 옵션 (Unity 탭만) -->
+    <div id="expUnityOpts" class="mb-3 hidden space-y-2">
+      <div class="flex items-center gap-2 text-[11px] text-zinc-400">
+        <label class="flex items-center gap-1">열 수 <input type="number" id="expUnityCols" min="0" max="64" value="0" class="w-14 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-1 mono text-center"></label>
+        <span class="text-zinc-600">(0=한 줄)</span>
+        <label class="flex items-center gap-1 ml-auto">PPU <input type="number" id="expUnityPPU" min="1" max="2048" value="32" class="w-16 bg-zinc-800 border border-zinc-700 rounded px-1.5 py-1 mono text-center"></label>
+      </div>
+      <div class="flex items-center gap-2 text-[11px] text-zinc-400">
+        <label class="flex items-center gap-1">피벗
+          <select id="expUnityPivot" class="bg-zinc-800 border border-zinc-700 rounded px-1.5 py-1 text-[11px]">
+            <option value="0.5,0">하단 중앙 (캐릭터)</option>
+            <option value="0.5,0.5">중앙</option>
+            <option value="0,0">좌하단</option>
+          </select>
+        </label>
+        <span class="text-zinc-600 ml-auto">PNG + .meta 자동 슬라이스</span>
+      </div>
     </div>
 
     <!-- 파일명 -->
@@ -929,6 +949,7 @@
 <script src="src/tools.js"></script>
 <script src="src/refboard.js"></script>
 <script src="src/glow.js"></script>
+<script src="src/gameexport.js"></script>
 <script>
 /* =====================================================================
    Dotforge — 픽셀 애니메이션 에디터
@@ -4168,6 +4189,7 @@ $('onionOpacitySlider').addEventListener('input', e => {
     mode = 'png'; scale = 8;
     $('exportModal').classList.remove('hidden'); $('exportModal').classList.add('flex');
     $('expFilename').value = 'dotforge';
+    $('expUnityPPU').value = state.res;   // 기본 PPU = 해상도(스프라이트 1칸 = 1유닛)
     setStatus('');
     renderScaleBtns();
     setMode('png');
@@ -4190,10 +4212,14 @@ $('onionOpacitySlider').addEventListener('input', e => {
     $('expTabPng').classList.toggle('active', m==='png');
     $('expTabSheet').classList.toggle('active', m==='sheet');
     $('expTabGif').classList.toggle('active', m==='gif');
+    $('expTabUnity').classList.toggle('active', m==='unity');
     $('expSheetOpts').classList.toggle('hidden', m!=='sheet');
-    $('expExt').textContent = m==='gif' ? '.gif' : '.png';
-    // GIF는 배수 큰 게 무거우니 기본 8 유지, 시트 열 기본값
-    if (m==='sheet' && $('expSheetCols').value==='0') $('expSheetCols').value = 0;
+    $('expUnityOpts').classList.toggle('hidden', m!=='unity');
+    $('expExt').textContent = m==='gif' ? '.gif' : (m==='unity' ? '.png + .meta' : '.png');
+    // Unity는 픽셀 크리스프 위해 1× 고정 → 배수 UI 숨김
+    const scaleRow = $('expScaleBtns').closest('.mb-3');
+    if (scaleRow) scaleRow.classList.toggle('hidden', m==='unity');
+    if (m==='unity') scale = 1;
     updateInfo();
   }
   function updateInfo(){
@@ -4203,6 +4229,11 @@ $('onionOpacitySlider').addEventListener('input', e => {
     let w, h;
     if (mode==='png') { w=res*scale; h=res*scale; }
     else if (mode==='gif') { w=res*scale; h=res*scale; }
+    else if (mode==='unity') {
+      let cols = parseInt($('expUnityCols').value)||0; if (cols<=0) cols=n;
+      const rows = Math.ceil(n/cols);
+      w=res*cols; h=res*rows;   // Unity는 1× 고정
+    }
     else { // sheet
       let cols = parseInt($('expSheetCols').value)||0;
       if (cols<=0) cols=n;   // 0이면 한 줄
@@ -4218,7 +4249,9 @@ $('onionOpacitySlider').addEventListener('input', e => {
   $('expTabPng').onclick = ()=>setMode('png');
   $('expTabSheet').onclick = ()=>setMode('sheet');
   $('expTabGif').onclick = ()=>setMode('gif');
+  $('expTabUnity').onclick = ()=>setMode('unity');
   $('expSheetCols').addEventListener('input', updateInfo);
+  $('expUnityCols').addEventListener('input', updateInfo);
 
   function dl(dataUrl, name){
     const a=document.createElement('a'); a.href=dataUrl; a.download=name; a.click();
@@ -4244,6 +4277,33 @@ $('onionOpacitySlider').addEventListener('input', e => {
         });
         dl(sheet.toDataURL('image/png'), `${fname}_sheet.png`);
         toast('시트 다운로드!'); close();
+      } else if (mode==='unity') {
+        // Unity: 1× 크리스프 시트 + .meta (SpriteMode Multiple 자동 슬라이스)
+        const res=state.res, n=state.frames.length;
+        let cols = parseInt($('expUnityCols').value)||0; if(cols<=0)cols=n;
+        const rows = Math.ceil(n/cols);
+        const cell = res;   // 1× 고정
+        const sheet=document.createElement('canvas');
+        sheet.width=cell*cols; sheet.height=cell*rows;
+        const sx=sheet.getContext('2d'); sx.imageSmoothingEnabled=false;
+        state.frames.forEach((f,i)=>{
+          const cx=(i%cols)*cell, cy=Math.floor(i/cols)*cell;
+          sx.drawImage(frameToCanvas(f,1), cx, cy);   // frameToCanvas가 글로우도 구움
+        });
+        const pv = ($('expUnityPivot').value||'0.5,0').split(',').map(Number);
+        const pivotX = pv[0], pivotY = pv[1];
+        const alignment = (pivotX===0.5&&pivotY===0.5) ? 0 : 9;   // 중앙이면 Center, 아니면 Custom
+        const ppu = Math.max(1, parseInt($('expUnityPPU').value)||res);
+        const pngName = `${fname}_sheet.png`;
+        dl(sheet.toDataURL('image/png'), pngName);
+        const meta = DF.GameExport.buildUnityMeta({
+          baseName: fname, frameCount: n, cols,
+          cellW: cell, cellH: cell, sheetH: sheet.height,
+          ppu, pivotX, pivotY, alignment,
+        });
+        // .meta는 PNG 파일명 뒤에 .meta (Unity 규칙: <에셋>.png.meta)
+        dl('data:text/yaml;charset=utf-8,'+encodeURIComponent(meta), pngName+'.meta');
+        toast('Unity 시트 + .meta 다운로드! Assets에 함께 넣으세요.'); close();
       } else {
         // GIF
         $('expSpinner').classList.remove('hidden'); $('expGoLabel').textContent='생성 중…';
