@@ -19,31 +19,53 @@ const $ = (id) => document.getElementById(id);
 let _emCanvas = null;   // 발광원(res 크기) 스크래치
 let panelEl = null;
 
-// 발광원 만들기: 임계값 이상 밝기 픽셀만 색을 담은 res 크기 캔버스 (없으면 null)
+// 발광원 만들기: source에 따라 (1) 발광 지정 레이어의 픽셀 (2) 임계값 이상 밝기 픽셀
+// 을 담은 res 크기 캔버스 (없으면 null). 하이비트의 정석 = 발광 레이어 지정.
 function buildEmissive(frame) {
   const res = state.res, g = state.glow;
-  const flat = flattenFrame(frame || curFrame());
+  const fr = frame || curFrame();
   if (!_emCanvas) _emCanvas = document.createElement('canvas');
   const c = _emCanvas;
   if (c.width !== res || c.height !== res) { c.width = res; c.height = res; }
   const ctx = c.getContext('2d');
   const id = ctx.createImageData(res, res);
   const d = id.data;
-  const th = g.threshold;
-  const denom = (1 - th) || 1;
   const tint = g.tint ? hexToRgb(g.tint) : null;
+  const src = g.source || 'emissive';
+  const useEmissive = (src === 'emissive' || src === 'both');
+  const useBright = (src === 'bright' || src === 'both');
   let any = false;
-  for (let i = 0; i < flat.length; i++) {
-    const hex = flat[i]; if (!hex) continue;
-    const rgb = hexToRgb(hex); if (!rgb) continue;
-    const lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
-    if (lum < th) continue;
-    const w = (lum - th) / denom;            // 임계값 위로 얼마나 밝은가 0~1
+  const put = (i, rgb, a) => {
     const o = i * 4;
+    if (a <= d[o + 3]) return;              // 이미 더 강한 값 있으면 유지(둘 다 모드)
     if (tint) { d[o] = tint[0]; d[o + 1] = tint[1]; d[o + 2] = tint[2]; }
     else { d[o] = rgb[0]; d[o + 1] = rgb[1]; d[o + 2] = rgb[2]; }
-    d[o + 3] = Math.round(255 * Math.min(1, 0.55 + 0.45 * w));
-    any = true;
+    d[o + 3] = a; any = true;
+  };
+  // (1) 발광으로 지정한 레이어 — 밝기 무관, 전부 발광
+  if (useEmissive) {
+    for (const L of fr.layers) {
+      if (!L.visible || !L.emissive) continue;
+      const p = L.pixels;
+      for (let i = 0; i < p.length; i++) {
+        const hex = p[i]; if (!hex) continue;
+        const rgb = hexToRgb(hex); if (!rgb) continue;
+        put(i, rgb, 255);
+      }
+    }
+  }
+  // (2) 밝기 임계값 (옛 방식 — 옵션)
+  if (useBright) {
+    const flat = flattenFrame(fr);
+    const th = g.threshold, denom = (1 - th) || 1;
+    for (let i = 0; i < flat.length; i++) {
+      const hex = flat[i]; if (!hex) continue;
+      const rgb = hexToRgb(hex); if (!rgb) continue;
+      const lum = (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]) / 255;
+      if (lum < th) continue;
+      const w = (lum - th) / denom;
+      put(i, rgb, Math.round(255 * Math.min(1, 0.55 + 0.45 * w)));
+    }
   }
   if (!any) return null;
   ctx.putImageData(id, 0, 0);
@@ -116,6 +138,22 @@ function buildPanel() {
   head.appendChild(en);
   p.appendChild(head);
 
+  // 발광원 선택
+  const srow = document.createElement('div'); srow.style.cssText = 'display:flex;align-items:center;gap:6px;margin:6px 0;';
+  const slab = document.createElement('span'); slab.textContent = '발광원'; slab.style.color = '#a1a1aa';
+  const sel = document.createElement('select');
+  sel.style.cssText = 'flex:1;background:#3f3f46;color:#e4e4e7;border-radius:6px;padding:3px 6px;';
+  [['emissive', '발광 레이어(권장)'], ['bright', '밝기 임계값'], ['both', '둘 다']].forEach(([v, t]) => {
+    const o = document.createElement('option'); o.value = v; o.textContent = t; if ((state.glow.source || 'emissive') === v) o.selected = true; sel.appendChild(o);
+  });
+  const thWrap = { el: null };
+  sel.addEventListener('change', () => { state.glow.source = sel.value; if (thWrap.el) thWrap.el.style.display = (sel.value === 'bright' || sel.value === 'both') ? '' : 'none'; render(); if (typeof autoSave === 'function') autoSave(); });
+  srow.appendChild(slab); srow.appendChild(sel); p.appendChild(srow);
+  const emNote = document.createElement('div');
+  emNote.style.cssText = 'color:#71717a;font-size:11px;margin:-2px 0 4px;line-height:1.4;';
+  emNote.textContent = '발광 레이어: 레이어 패널에서 💡를 켠 레이어만 빛납니다(산나비식 네온).';
+  p.appendChild(emNote);
+
   const slider = (label, key, min, max, step, fmt) => {
     const row = document.createElement('div'); row.style.cssText = 'margin:8px 0;';
     const top = document.createElement('div'); top.style.cssText = 'display:flex;justify-content:space-between;color:#a1a1aa;margin-bottom:2px;';
@@ -128,9 +166,10 @@ function buildPanel() {
     r.addEventListener('change', () => { if (typeof autoSave === 'function') autoSave(); });
     row.appendChild(r); show();
     p.appendChild(row);
-    return r;
+    return row;
   };
-  slider('임계값 (밝기)', 'threshold', 0.1, 0.95, 0.01, v => Math.round(v * 100) + '%');
+  thWrap.el = slider('임계값 (밝기)', 'threshold', 0.1, 0.95, 0.01, v => Math.round(v * 100) + '%');
+  thWrap.el.style.display = (sel.value === 'bright' || sel.value === 'both') ? '' : 'none';
   slider('세기', 'intensity', 0.1, 2, 0.05, v => v.toFixed(2) + '×');
   slider('번짐 (반경)', 'radius', 0.4, 8, 0.1, v => v.toFixed(1));
 

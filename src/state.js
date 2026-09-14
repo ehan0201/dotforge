@@ -86,13 +86,14 @@ const state = {
   started: false,            // 로비를 벗어나 에디터가 활성화됐는지
   hiBit: false,              // 하이비트 전용 프로젝트로 시작했는지(고해상도·고색상 정밀 작업)
   // 글로우/조명(산나비풍 네온 발광 블룸). 밝은 픽셀이 번져 빛나며, 내보내기에도 구워짐.
-  glow: { enabled: false, threshold: 0.6, intensity: 0.9, radius: 2.2, tint: null },
+  // source: 'emissive'(발광 지정 레이어만·정석) | 'bright'(밝기 임계값) | 'both'
+  glow: { enabled: false, source: 'emissive', threshold: 0.6, intensity: 0.9, radius: 2.2, tint: null },
 };
 
 // ---------- 데이터 모델: 프레임 = 여러 레이어 + 지속시간 ----------
 function makeEmptyPixels() { return new Array(state.res * state.res).fill(null); }
 function makeLayer(name) {
-  return { pixels: makeEmptyPixels(), opacity: 1, visible: true, name: name || '레이어 1', blend: 'source-over' };
+  return { pixels: makeEmptyPixels(), opacity: 1, visible: true, name: name || '레이어 1', blend: 'source-over', emissive: false };
 }
 function makeEmptyFrame() {
   return { layers: [makeLayer('레이어 1')], active: 0, duration: state.defaultDuration };
@@ -118,7 +119,7 @@ function flattenFrame(fr) {
 // 프레임 전체를 깊은 복사로 스냅샷 (레이어/픽셀/설정 포함)
 function cloneFrame(fr) {
   return {
-    layers: fr.layers.map(L => ({ pixels: L.pixels.slice(), opacity: L.opacity, visible: L.visible, name: L.name, blend: L.blend || 'source-over' })),
+    layers: fr.layers.map(L => ({ pixels: L.pixels.slice(), opacity: L.opacity, visible: L.visible, name: L.name, blend: L.blend || 'source-over', emissive: !!L.emissive })),
     active: fr.active, duration: fr.duration
   };
 }

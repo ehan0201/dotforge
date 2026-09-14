@@ -2055,7 +2055,7 @@ function serializeProject() {
     playMode: state.playMode, playReverse: state.playReverse, tags: state.tags,
     frames: state.frames.map(fr => ({
       duration: fr.duration, active: fr.active,
-      layers: fr.layers.map(L => ({ name: L.name, opacity: L.opacity, visible: L.visible, blend: L.blend||'source-over', pixels: L.pixels }))
+      layers: fr.layers.map(L => ({ name: L.name, opacity: L.opacity, visible: L.visible, blend: L.blend||'source-over', emissive: !!L.emissive, pixels: L.pixels }))
     })),
     palette: state.palette,
     ref,
@@ -2088,6 +2088,7 @@ function loadProjectData(d) {
       opacity: (typeof L.opacity === 'number' && L.opacity>=0 && L.opacity<=1) ? L.opacity : 1,
       visible: L.visible !== false,
       blend: (typeof L.blend === 'string' ? L.blend : 'source-over'),
+      emissive: L.emissive === true,
       pixels: cleanPixels(L && L.pixels)
     }));
     if (!layers.length) layers.push(makeLayer());
@@ -2111,6 +2112,7 @@ function loadProjectData(d) {
     const gd = d.glow, num = (v, dfl, lo, hi) => (typeof v === 'number' && isFinite(v)) ? Math.max(lo, Math.min(hi, v)) : dfl;
     state.glow = {
       enabled: !!gd.enabled,
+      source: (gd.source === 'bright' || gd.source === 'both') ? gd.source : 'emissive',
       threshold: num(gd.threshold, 0.6, 0.05, 1),
       intensity: num(gd.intensity, 0.9, 0, 3),
       radius: num(gd.radius, 2.2, 0.2, 12),
@@ -2527,11 +2529,23 @@ function renderLayerList() {
       if (v != null) { L.name = v.trim() || L.name; renderLayerList(); }
     };
 
+    // 발광(이미시브) 토글 — 켜면 이 레이어가 글로우로 빛남 (하이비트 네온)
+    const emit = document.createElement('button');
+    emit.className = 'text-sm shrink-0 ' + (L.emissive ? 'opacity-100' : 'opacity-25 grayscale');
+    emit.textContent = '💡';
+    emit.title = L.emissive ? '발광 켜짐 (글로우 대상) — 클릭해 끄기' : '발광 꺼짐 — 클릭해 이 레이어를 빛나게';
+    emit.onclick = ev => {
+      ev.stopPropagation();
+      L.emissive = !L.emissive;
+      if (L.emissive && (!state.glow || !state.glow.enabled) && window.DF && DF.Glow) { state.glow.enabled = true; DF.Glow.enable(true); }
+      render(); renderLayerList(); if (typeof autoSave==='function') autoSave();
+    };
+
     const op = document.createElement('span');
     op.className = 'text-[10px] mono text-zinc-500 shrink-0 w-8 text-right';
     op.textContent = Math.round(L.opacity * 100) + '%';
 
-    row.appendChild(eye); row.appendChild(th); row.appendChild(nm); row.appendChild(op);
+    row.appendChild(eye); row.appendChild(th); row.appendChild(nm); row.appendChild(emit); row.appendChild(op);
     row.onclick = () => selectLayer(i);
 
     // 드래그 앤 드롭: 사이에 놓으면 순서 이동, 레이어 위(중앙)에 놓으면 병합
@@ -2647,10 +2661,16 @@ $('lobbyHibitBtn').onclick = () => {
   const gt = $('gridToggle'); if (gt) gt.classList.remove('active');
   drawGrid();
   selectTool('shade');
-  // 산나비풍 네온 발광 기본 On
-  state.glow = { enabled: true, threshold: 0.55, intensity: 1.0, radius: 2.6, tint: null };
+  // 하이비트 정석 워크플로: 기본 레이어 + 발광(네온) 레이어. 발광 레이어에 그리면 빛남.
+  const fr = curFrame();
+  if (fr.layers[0]) fr.layers[0].name = '기본';
+  const neon = makeLayer('네온 (발광)'); neon.emissive = true;
+  fr.layers.push(neon); fr.active = fr.layers.length - 1;
+  renderLayerList();
+  // 발광 레이어 기반 글로우 On (밝기 임계값 아님 — 지정한 것만 빛남)
+  state.glow = { enabled: true, source: 'emissive', threshold: 0.6, intensity: 1.0, radius: 2.6, tint: null };
   if (window.DF && DF.Glow) DF.Glow.enable(true);
-  toast('하이비트 모드 · 96×96 · 글로우 On — 밝은 색이 네온처럼 빛나요(💡에서 조절). 그리드는 꺼뒀어요.');
+  toast('하이비트 · 96×96 — "네온(발광)" 레이어에 그리면 빛나요. 레이어 💡로 발광 지정, 그리드는 꺼뒀어요.');
 };
 $('lobbyCreateBtn').onclick = () => {
   let v = parseInt($('lobbyResInput').value) || 32;
