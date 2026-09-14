@@ -3077,11 +3077,13 @@ const TOOL_SETTINGS = {
   picker:  { stats: () => [['Shift', '임시 사용']], controls: [] },
   select:  { stats: () => [['조작', '이동·복사·삭제']], controls: [] },
   shade: {
-    stats: () => [['세기', state.shadeStrength+'%'], ['방향', state.shadeMode==='inner'?'중심 진하게':'바깥 진하게'], ['효과', state.shadeLighten?'밝게':'어둡게']],
+    stats: () => [['세기', state.shadeStrength+'%'], ['방향', state.shadeMode==='inner'?'중심 진하게':'바깥 진하게'], ['효과', state.shadeLighten?'밝게':'어둡게'], ['색조', state.shadeHue?('휴시프트 '+state.shadeHueAmount+'°'):'명도만']],
     controls: [
       { type:'range', label:'세기', min:2, max:50, step:2, get:()=>state.shadeStrength, set:v=>{ state.shadeStrength=v; }, unit:'%', hint:'낮을수록 약한 명암' },
       { type:'toggle', label:'중심을 진하게 (오목)', get:()=>state.shadeMode==='inner', set:v=>{ state.shadeMode=v?'inner':'outer'; }, hint:'끄면 바깥이 진해짐 (볼록)' },
       { type:'toggle', label:'밝게 (하이라이트)', get:()=>state.shadeLighten, set:v=>{ state.shadeLighten=v; }, hint:'끄면 어둡게 (그림자)' },
+      { type:'toggle', label:'휴 시프트 (하이비트식)', get:()=>state.shadeHue, set:v=>{ state.shadeHue=v; }, hint:'그림자=차갑게, 하이라이트=따뜻하게' },
+      { type:'range', label:'색조 이동', min:0, max:60, step:2, get:()=>state.shadeHueAmount, set:v=>{ state.shadeHueAmount=v; }, unit:'°', hint:'휴 시프트 각도 (0=명도만)' },
     ],
   },
   potrace: { stats: () => [['결과', '새 레이어']], controls: [] },

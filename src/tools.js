@@ -15,7 +15,7 @@ window.DF = window.DF || {};
 'use strict';
 
 const { state, curPixels, curFrame, makeLayer, flattenFrame, pushUndo, render,
-        setColor, pushPalette, hexToRgb, rgbToHex } = DF;
+        setColor, pushPalette, hexToRgb, rgbToHex, rgbToHsv, hsvToRgb } = DF;
 
 // 지금 칠할 값: 지우기 모드거나 지우개 도구면 투명(null), 아니면 현재 색
 function paintValue() {
@@ -175,9 +175,35 @@ function shadeCell(cell) {
       else w = 1 - falloff;                                 // 바깥이 강함
       const amount = strength * w;
       if (amount <= 0.001) continue;
-      f[i] = adjustBrightness(cur, lighten ? amount : -amount);
+      const delta = lighten ? amount : -amount;
+      f[i] = state.shadeHue ? hueShiftShade(cur, delta, state.shadeHueAmount) : adjustBrightness(cur, delta);
     }
   }
+}
+// 휴 시프트 명암(하이비트식): 어둡게 하면 색조를 차가운 쪽(파랑~보라), 밝게 하면 따뜻한 쪽(노랑~주황)으로.
+// delta: 음수=그림자, 양수=하이라이트 (절대값 0~1). amtDeg: 최대 색조 이동 각도.
+function hueShiftShade(hex, delta, amtDeg) {
+  const rgb = hexToRgb(hex); if (!rgb) return hex;
+  let [h, s, v] = rgbToHsv(rgb[0], rgb[1], rgb[2]);
+  const amt = Math.min(1, Math.abs(delta));
+  const maxDeg = (typeof amtDeg === 'number' ? amtDeg : 28);
+  // 목표 색조로 회전(최단 경로), 최대 maxDeg*amt 만큼
+  const rotateToward = (cur, target, step) => {
+    let d = ((target - cur + 540) % 360) - 180;      // -180~180
+    d = Math.max(-step, Math.min(step, d));
+    return (cur + d + 360) % 360;
+  };
+  if (delta < 0) {          // 그림자: 차갑게 + 어둡게 + 살짝 채도↑
+    h = rotateToward(h, 240, maxDeg * amt);
+    v = v * (1 - 0.85 * amt);
+    s = Math.min(1, s + 0.12 * amt);
+  } else {                  // 하이라이트: 따뜻하게 + 밝게 + 살짝 채도↓
+    h = rotateToward(h, 50, maxDeg * amt);
+    v = v + (1 - v) * 0.85 * amt;
+    s = Math.max(0, s - 0.12 * amt);
+  }
+  const out = hsvToRgb(h, s, v);
+  return rgbToHex(out[0], out[1], out[2]);
 }
 // 색의 명도를 delta(-1~1)만큼 조절 (곱셈 기반이라 자연스러움)
 function adjustBrightness(hex, delta) {
@@ -484,7 +510,7 @@ function pasteClipboard() {
 // ---------- 노출 ----------
 const exported = {
   paintValue, applyTool, sampleRefColor, setPixelMirrored, paintCell,
-  shadeCell, adjustBrightness, paintLine, bucketFill,
+  shadeCell, adjustBrightness, hueShiftShade, paintLine, bucketFill,
   shapeCells, drawShapePreview, commitShape,
   drawSelectionOverlay, liftSelection, stampFloat, clearSelection, deleteSelection,
   selectAll, selContains, potraceRegion, magicWandSelect, copySelection, pasteClipboard,

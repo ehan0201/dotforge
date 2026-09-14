@@ -40,6 +40,8 @@ const state = {
   shadeStrength: 12,              // 셰이딩 세기 (%, 한 번 지날 때 명도 감소량)
   shadeMode: 'outer',             // outer=바깥일수록 어두움, inner=중심일수록 어두움
   shadeLighten: false,            // true면 어둡게가 아니라 밝게(하이라이트)
+  shadeHue: true,                 // 휴 시프트 명암(하이비트식): 그림자=차갑게/하이라이트=따뜻하게
+  shadeHueAmount: 28,             // 색조 이동 최대 각도(도)
   potraceMode: 'newlayer',        // 부분 도트화 결과: 새 레이어
   defaultDuration: 100,           // 새 프레임 기본 지속시간(ms)
   useDuration: false,             // true면 프레임별 duration으로 재생, false면 균일 FPS
