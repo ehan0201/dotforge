@@ -56,6 +56,12 @@
   .lobby-card { transition: transform .15s ease, border-color .15s ease, background-color .15s ease; }
   .lobby-card:hover { transform: translateY(-3px); border-color: #6366f1; }
 
+  /* 새 프로젝트 설정: 선택된 칩/카드 */
+  .create-res, .create-mode, .create-src { transition: border-color .12s ease, background-color .12s ease, color .12s ease; }
+  .create-res:hover, .create-mode:hover, .create-src:hover { border-color: #52525b; }
+  .create-res.sel, .create-src.sel { background-color: #4f46e5; border-color: #6366f1; color: #fff; }
+  .create-mode.sel { border-color: #6366f1; background-color: rgba(79,70,229,.18); }
+
   @media (prefers-reduced-motion: reduce) {
     *, .tool-btn, .frame-thumb, .lobby-card { transition: none !important; }
   }

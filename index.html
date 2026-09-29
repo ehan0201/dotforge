@@ -30,82 +30,128 @@
   <div class="absolute inset-0 pointer-events-none opacity-60"
        style="background:radial-gradient(circle at 30% 20%, #312e8133 0, transparent 45%), radial-gradient(circle at 75% 80%, #1e293b55 0, transparent 50%)"></div>
 
-  <div class="relative w-full max-w-3xl">
+  <div class="relative w-full max-w-lg">
     <!-- 로고 -->
-    <div class="flex items-center gap-3 mb-2">
+    <div class="flex items-center gap-3 mb-8">
       <div class="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">◆</div>
       <div>
         <h1 class="text-2xl font-bold tracking-tight">Dotforge</h1>
         <p class="text-xs text-zinc-500 mono">WEB PIXEL ANIMATION EDITOR</p>
       </div>
     </div>
-    <p class="text-zinc-400 text-sm mb-6 leading-relaxed">새 캔버스를 만들거나 이미지를 불러와 도트로 변환하며 시작하세요.</p>
 
-    <!-- 이어서 작업 (자동 저장된 작업이 있을 때만) -->
-    <button id="resumeBtn" class="w-full mb-6 bg-gradient-to-r from-indigo-600/20 to-indigo-500/10 border border-indigo-500/50 rounded-xl p-4 flex items-center gap-3 text-left hover:from-indigo-600/30 transition-colors" style="display:none">
-      <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xl">↺</div>
-      <div class="flex-1">
-        <div class="font-semibold text-indigo-100">이어서 작업하기</div>
-        <div class="text-xs text-indigo-300/70">브라우저에 저장된 마지막 작업을 불러옵니다</div>
+    <!-- ========== 메인 뷰: 이어서 / 새 프로젝트 / 키 설정 ========== -->
+    <div id="lobbyMain">
+      <!-- 이어서 작업 (자동 저장된 작업이 있을 때만) -->
+      <button id="resumeBtn" class="w-full mb-3 bg-gradient-to-r from-indigo-600/20 to-indigo-500/10 border border-indigo-500/50 rounded-xl p-4 flex items-center gap-3 text-left hover:from-indigo-600/30 transition-colors" style="display:none">
+        <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-300 text-xl">↺</div>
+        <div class="flex-1">
+          <div class="font-semibold text-indigo-100">이어서 작업하기</div>
+          <div class="text-xs text-indigo-300/70">브라우저에 저장된 마지막 작업을 불러옵니다</div>
+        </div>
+        <span class="text-indigo-300">→</span>
+      </button>
+
+      <!-- 새 프로젝트 만들기 (설정 직접) -->
+      <button id="lobbyNewBtn" class="w-full mb-3 bg-indigo-600 hover:bg-indigo-500 border border-indigo-400/40 rounded-xl p-4 flex items-center gap-3 text-left transition-colors">
+        <div class="w-10 h-10 rounded-lg bg-white/15 flex items-center justify-center text-white text-2xl leading-none">＋</div>
+        <div class="flex-1">
+          <div class="font-semibold text-white">새 프로젝트 만들기</div>
+          <div class="text-xs text-indigo-100/80">크기·모드·조명 등 설정을 직접 정하고 시작합니다</div>
+        </div>
+        <span class="text-white/80">→</span>
+      </button>
+
+      <!-- 키 설정 -->
+      <button id="lobbyKeysBtn" class="w-full mb-6 bg-zinc-900 hover:border-zinc-700 border border-zinc-800 rounded-xl p-4 flex items-center gap-3 text-left transition-colors">
+        <div class="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-xl">⌨️</div>
+        <div class="flex-1">
+          <div class="font-semibold text-zinc-100">키 설정</div>
+          <div class="text-xs text-zinc-500">단축키를 원하는 대로 바꿉니다</div>
+        </div>
+        <span class="text-zinc-500">→</span>
+      </button>
+
+      <!-- 보조 유틸 (작게) -->
+      <div class="flex flex-wrap gap-3 text-[13px] text-zinc-500">
+        <button id="lobbyOpenBtn" class="hover:text-zinc-200 transition-colors flex items-center gap-1">📂 프로젝트 열기</button>
+        <button id="tutorialBtn" class="hover:text-zinc-200 transition-colors flex items-center gap-1">📖 튜토리얼</button>
+        <button id="guideBtn" class="hover:text-zinc-200 transition-colors flex items-center gap-1">📚 가이드북</button>
       </div>
-      <span class="text-indigo-300">→</span>
-    </button>
-
-    <!-- 새 캔버스: 해상도 프리셋 카드 -->
-    <h2 class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-3">새 캔버스</h2>
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      <button class="lobby-card start-new bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-left" data-res="16">
-        <div class="text-lg font-bold mono">16×16</div>
-        <div class="text-xs text-zinc-500 mt-1">아이콘 · 작은 스프라이트</div>
-      </button>
-      <button class="lobby-card start-new bg-zinc-900 border border-indigo-500 rounded-xl p-4 text-left" data-res="32">
-        <div class="text-lg font-bold mono">32×32</div>
-        <div class="text-xs text-zinc-500 mt-1">캐릭터 · 권장</div>
-      </button>
-      <button class="lobby-card start-new bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-left" data-res="64">
-        <div class="text-lg font-bold mono">64×64</div>
-        <div class="text-xs text-zinc-500 mt-1">상세 스프라이트</div>
-      </button>
-      <button class="lobby-card start-new bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-left" data-res="128">
-        <div class="text-lg font-bold mono">128×128</div>
-        <div class="text-xs text-zinc-500 mt-1">고해상도 · 무거움</div>
-      </button>
     </div>
 
-    <!-- 하이비트 전용 시작: 고해상도 + 고색상 정밀 작업(명암/AA 중심) -->
-    <button id="lobbyHibitBtn" class="w-full mb-6 bg-gradient-to-r from-fuchsia-600/20 to-amber-500/10 border border-fuchsia-500/50 rounded-xl p-4 flex items-center gap-3 text-left hover:from-fuchsia-600/30 transition-colors">
-      <span class="text-2xl">✨</span>
-      <div>
-        <div class="font-bold">하이비트로 시작 <span class="text-xs font-normal text-fuchsia-300/80 ml-1">Hi-Bit</span></div>
-        <div class="text-xs text-zinc-400 mt-0.5">96×96 고해상도 · 색 제한 없이 명암/안티에일리어싱 정밀 작업. 그리드 끄고 셰이딩 도구로 시작.</div>
+    <!-- ========== 새 프로젝트 설정 뷰 ========== -->
+    <div id="lobbyCreate" style="display:none">
+      <div class="flex items-center gap-3 mb-5">
+        <button id="createBack" class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center justify-center text-zinc-300">←</button>
+        <h2 class="text-lg font-bold">새 프로젝트 설정</h2>
       </div>
-    </button>
 
-    <!-- 직접 입력 + 이미지 불러오기 -->
-    <div class="flex flex-col sm:flex-row gap-3">
-      <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 flex-1">
-        <span class="text-xs text-zinc-500 whitespace-nowrap">직접 입력</span>
-        <input type="number" id="lobbyResInput" value="32" min="4" max="512"
-          class="w-20 bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm mono focus:outline-none focus:border-indigo-500">
-        <span class="text-xs text-zinc-500 mono">px²</span>
-        <button id="lobbyCreateBtn" class="ml-auto text-sm px-4 py-1.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium whitespace-nowrap">만들기</button>
+      <!-- 캔버스 크기 -->
+      <div class="mb-5">
+        <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">캔버스 크기</div>
+        <div class="flex flex-wrap gap-2 mb-2">
+          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="16">16</button>
+          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="32">32</button>
+          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="48">48</button>
+          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="64">64</button>
+          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="96">96</button>
+          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="128">128</button>
+          <div class="flex items-center gap-1.5 ml-auto">
+            <input type="number" id="createRes" value="32" min="4" max="512" class="w-20 bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm mono text-center focus:outline-none focus:border-indigo-500">
+            <span class="text-xs text-zinc-500 mono">px²</span>
+          </div>
+        </div>
       </div>
-      <button id="lobbyImageBtn" class="lobby-card bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-3 flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap">
-        <span>⬆</span> 이미지로 시작
-      </button>
-      <button id="lobbyRefBtn" class="lobby-card bg-zinc-900 border border-zinc-800 rounded-xl px-5 py-3 flex items-center justify-center gap-2 text-sm font-medium whitespace-nowrap" title="밑그림을 깔고 새 캔버스로 시작 (트레이싱)">
-        <span>🖼</span> 밑그림으로 시작
-      </button>
+
+      <!-- 모드 -->
+      <div class="mb-5">
+        <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">모드</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="create-mode text-left p-3 rounded-xl bg-zinc-900 border border-zinc-800" data-mode="normal">
+            <div class="font-semibold text-sm">🎮 일반</div>
+            <div class="text-[11px] text-zinc-500 mt-0.5">레트로 픽셀아트 기본</div>
+          </button>
+          <button class="create-mode text-left p-3 rounded-xl bg-zinc-900 border border-zinc-800" data-mode="hibit">
+            <div class="font-semibold text-sm">✨ 하이비트</div>
+            <div class="text-[11px] text-zinc-500 mt-0.5">발광 레이어·글로우 자동, 정밀 명암</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 시작 방식 -->
+      <div class="mb-5">
+        <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">시작 방식</div>
+        <div class="flex flex-wrap gap-2">
+          <button class="create-src px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm" data-src="blank">🗒 빈 캔버스</button>
+          <button class="create-src px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm" data-src="image">⬆ 이미지 변환</button>
+          <button class="create-src px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-sm" data-src="ref" title="밑그림을 깔고 트레이싱">🖼 밑그림 깔기</button>
+        </div>
+      </div>
+
+      <!-- 옵션 -->
+      <div class="mb-6">
+        <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">옵션</div>
+        <div class="space-y-1.5 text-sm">
+          <label class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" id="createGrid" class="accent-indigo-500" checked>
+            <span>그리드 표시</span><span class="text-[11px] text-zinc-500 ml-auto">격자 눈금</span>
+          </label>
+          <label class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" id="createOnion" class="accent-indigo-500" checked>
+            <span>어니언 스킨</span><span class="text-[11px] text-zinc-500 ml-auto">이전 프레임 비침</span>
+          </label>
+          <label class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 cursor-pointer">
+            <input type="checkbox" id="createGlow" class="accent-indigo-500">
+            <span>글로우 / 네온 조명</span><span class="text-[11px] text-zinc-500 ml-auto">발광 레이어 번짐</span>
+          </label>
+        </div>
+      </div>
+
+      <button id="createGo" class="w-full text-sm py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors">만들기 →</button>
     </div>
+
     <input type="file" id="lobbyRefInput" accept="image/*" class="hidden">
-    <!-- 하단 유틸 버튼 -->
-    <div class="flex flex-wrap gap-3 mt-6">
-      <button id="tutorialBtn" class="text-sm px-4 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center gap-2">📖 튜토리얼</button>
-      <button id="guideBtn" class="text-sm px-4 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center gap-2">📚 가이드북</button>
-      <button id="lobbyKeysBtn" class="text-sm px-4 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center gap-2">⌨️ 단축키 설정</button>
-      <button id="lobbyOpenBtn" class="text-sm px-4 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 flex items-center gap-2">📂 프로젝트 열기</button>
-    </div>
-    <p class="text-[11px] text-zinc-600 mt-4">B 펜 · E 지우개 · G 통 · I 스포이드 · Shift 임시 스포이드 · Space+드래그 화면이동 · TAB 인벤토리</p>
   </div>
 </div>
 
@@ -2635,6 +2681,41 @@ function renderLayerList() {
 // =====================================================================
 //  로비 ↔ 에디터 전환
 // =====================================================================
+// 새 프로젝트 설정 화면에서 고른 옵션을 enterEditor 끝에서 한 번 적용 (경로 공통)
+let _pendingProjectOpts = null;
+function applyPendingProjectOpts() {
+  const o = _pendingProjectOpts; _pendingProjectOpts = null;
+  if (!o) return;
+  // 그리드
+  state.showGrid = !!o.grid;
+  const gt = $('gridToggle'); if (gt) gt.classList.toggle('active', state.showGrid);
+  if (typeof drawGrid === 'function') drawGrid();
+  // 어니언
+  if (typeof setOnion === 'function') setOnion(!!o.onion);
+  // 하이비트: 기본/발광(네온) 레이어 구성 + 명암 도구
+  state.hiBit = !!o.hiBit;
+  if (o.hiBit) {
+    const fr = curFrame();
+    if (fr.layers[0]) fr.layers[0].name = '기본';
+    if (!fr.layers.some(L => L.emissive)) {
+      const neon = makeLayer('네온 (발광)'); neon.emissive = true;
+      fr.layers.push(neon); fr.active = fr.layers.length - 1;
+    }
+    renderLayerList();
+    if (typeof selectTool === 'function') selectTool('shade');
+  }
+  // 글로우 / 네온 조명
+  if (o.glow) {
+    state.glow = { enabled: true, source: 'emissive', threshold: 0.6, intensity: 1.0, radius: 2.6, tint: null };
+    if (window.DF && DF.Glow) DF.Glow.enable(true);
+  } else {
+    state.glow.enabled = false;
+    if (window.DF && DF.Glow) DF.Glow.enable(false);
+  }
+  autoSave();
+  if (o.hiBit) toast('하이비트 — "네온(발광)" 레이어에 그리면 빛나요. 레이어 💡로 발광 지정.');
+}
+
 function enterEditor(res) {
   state.started = true;                 // 먼저 활성화 (applyResolution 내부 렌더 위해)
   state.zoom = 1;                       // 줌 초기화
@@ -2650,11 +2731,14 @@ function enterEditor(res) {
   requestAnimationFrame(() => { initCanvasSize(); updatePickerUI(); });
   renderFavorites();
   autoSave();   // 새 캔버스도 자동 저장 시작
+  applyPendingProjectOpts();   // 새 프로젝트 설정 화면에서 고른 옵션 적용
 }
 function goLobby() {
   if (state.playing) togglePlay();
   autoSave();                 // 로비 가기 전 현재 작업 저장
   state.started = false;
+  _pendingProjectOpts = null;
+  showLobbyView('main');
   $('lobby').style.display = 'flex';
   refreshResumeButton();
 }
@@ -2673,35 +2757,55 @@ function syncResPresets(res) {
   });
 }
 
-// 로비 버튼들
-document.querySelectorAll('.start-new').forEach(b =>
-  b.onclick = () => enterEditor(parseInt(b.dataset.res)));
-// 하이비트 전용 시작: 96×96 + 그리드 끔 + 명암 도구 선택 (고색상 정밀 작업 플로우)
-$('lobbyHibitBtn').onclick = () => {
-  state.hiBit = true;
-  enterEditor(96);
-  state.showGrid = false;
-  const gt = $('gridToggle'); if (gt) gt.classList.remove('active');
-  drawGrid();
-  selectTool('shade');
-  // 하이비트 정석 워크플로: 기본 레이어 + 발광(네온) 레이어. 발광 레이어에 그리면 빛남.
-  const fr = curFrame();
-  if (fr.layers[0]) fr.layers[0].name = '기본';
-  const neon = makeLayer('네온 (발광)'); neon.emissive = true;
-  fr.layers.push(neon); fr.active = fr.layers.length - 1;
-  renderLayerList();
-  // 발광 레이어 기반 글로우 On (밝기 임계값 아님 — 지정한 것만 빛남)
-  state.glow = { enabled: true, source: 'emissive', threshold: 0.6, intensity: 1.0, radius: 2.6, tint: null };
-  if (window.DF && DF.Glow) DF.Glow.enable(true);
-  toast('하이비트 · 96×96 — "네온(발광)" 레이어에 그리면 빛나요. 레이어 💡로 발광 지정, 그리드는 꺼뒀어요.');
+// ---------- 로비: 메인 ↔ 새 프로젝트 설정 ----------
+// 사용자가 설정을 직접 정하는 "새 프로젝트" 화면의 현재 선택값
+const createCfg = { res: 32, hiBit: false, source: 'blank', grid: true, onion: true, glow: false };
+
+function showLobbyView(which) {
+  const m = $('lobbyMain'), c = $('lobbyCreate');
+  if (m) m.style.display = which === 'create' ? 'none' : '';
+  if (c) c.style.display = which === 'create' ? '' : 'none';
+}
+function syncCreateUI() {
+  $('createRes').value = createCfg.res;
+  document.querySelectorAll('.create-res').forEach(b => b.classList.toggle('sel', +b.dataset.res === createCfg.res));
+  document.querySelectorAll('.create-mode').forEach(b => b.classList.toggle('sel', b.dataset.mode === (createCfg.hiBit ? 'hibit' : 'normal')));
+  document.querySelectorAll('.create-src').forEach(b => b.classList.toggle('sel', b.dataset.src === createCfg.source));
+  $('createGrid').checked = createCfg.grid;
+  $('createOnion').checked = createCfg.onion;
+  $('createGlow').checked = createCfg.glow;
+}
+function openCreate() { showLobbyView('create'); syncCreateUI(); }
+
+$('lobbyNewBtn').onclick = openCreate;
+$('createBack').onclick = () => { _pendingProjectOpts = null; showLobbyView('main'); };
+
+document.querySelectorAll('.create-res').forEach(b => b.onclick = () => { createCfg.res = +b.dataset.res; syncCreateUI(); });
+$('createRes').addEventListener('input', () => {
+  createCfg.res = Math.max(4, Math.min(512, parseInt($('createRes').value) || 32));
+  document.querySelectorAll('.create-res').forEach(b => b.classList.toggle('sel', +b.dataset.res === createCfg.res));
+});
+document.querySelectorAll('.create-mode').forEach(b => b.onclick = () => {
+  createCfg.hiBit = b.dataset.mode === 'hibit';
+  // 하이비트 기본값: 글로우 켜고 그리드 끄고, 크기가 작으면 96으로 올림 (사용자가 아래서 다시 조정 가능)
+  if (createCfg.hiBit) { createCfg.glow = true; createCfg.grid = false; if (createCfg.res < 64) createCfg.res = 96; }
+  syncCreateUI();
+});
+document.querySelectorAll('.create-src').forEach(b => b.onclick = () => { createCfg.source = b.dataset.src; syncCreateUI(); });
+$('createGrid').addEventListener('change', () => createCfg.grid = $('createGrid').checked);
+$('createOnion').addEventListener('change', () => createCfg.onion = $('createOnion').checked);
+$('createGlow').addEventListener('change', () => createCfg.glow = $('createGlow').checked);
+
+$('createGo').onclick = () => {
+  const res = Math.max(4, Math.min(512, createCfg.res || 32));
+  // enterEditor 끝에서 소비되는 대기 옵션 (빈 캔버스/이미지/밑그림 모든 경로 공통 적용)
+  _pendingProjectOpts = { hiBit: createCfg.hiBit, grid: createCfg.grid, onion: createCfg.onion, glow: createCfg.glow };
+  state.res = res;
+  if (createCfg.source === 'image') { $('fileInput').click(); }        // loadFile → enterEditor → applyPendingProjectOpts
+  else if (createCfg.source === 'ref') { $('createRes').value = res; $('lobbyRefInput').click(); } // 밑그림 모달 → enterEditor
+  else { enterEditor(res); }
 };
-$('lobbyCreateBtn').onclick = () => {
-  let v = parseInt($('lobbyResInput').value) || 32;
-  enterEditor(Math.max(4, Math.min(512, v)));
-};
-$('lobbyImageBtn').onclick = () => { state.res = Math.max(4, Math.min(512, parseInt($("lobbyResInput").value)||32)); $('fileInput').click(); };
-// 로비: 밑그림으로 시작 (빈 캔버스 + 밑그림 깔기)
-$('lobbyRefBtn').onclick = () => $('lobbyRefInput').click();
+
 $('lobbyRefInput').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value='';
   if (!f) return;
@@ -2730,7 +2834,7 @@ function openRefStartModal(dataUrl) {
   const resRow = $('refStartRes').closest('.flex');
   if (resRow) resRow.classList.toggle('hidden', !!state.started);
   $('refStartGo').textContent = state.started ? '✓ 밑그림 깔기' : '✓ 밑그림 깔고 시작';
-  $('refStartRes').value = Math.max(4, Math.min(512, parseInt($('lobbyResInput').value)||32));
+  $('refStartRes').value = Math.max(4, Math.min(512, parseInt($('createRes').value)||32));
   renderRefStartResBtns();
   $('refStartModal').classList.remove('hidden');
   $('refStartModal').classList.add('flex');
