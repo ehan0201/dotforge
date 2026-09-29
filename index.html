@@ -488,6 +488,25 @@
         </label>
         <span class="text-zinc-600 ml-auto">PNG + .meta 자동 슬라이스</span>
       </div>
+      <!-- 라이팅 방식: 구운 스프라이트 vs 다이내믹(노멀+에미션) -->
+      <div class="rounded-lg bg-zinc-950/60 border border-zinc-800 p-2 space-y-1.5">
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input type="radio" name="expUnityLit" value="baked" class="mt-0.5" checked>
+          <span class="text-[11px]"><span class="text-zinc-200">구운 스프라이트 (정적)</span>
+            <span class="block text-zinc-600">그림에 명암·글로우를 박아 한 장으로. 어디서나 똑같이 보임.</span></span>
+        </label>
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input type="radio" name="expUnityLit" value="dynamic" class="mt-0.5">
+          <span class="text-[11px]"><span class="text-indigo-300">다이내믹 조명 (노멀+에미션) ★</span>
+            <span class="block text-zinc-600">albedo + 노멀맵 + 에미션 3장 + 세팅 안내. 유니티 맵 조명에 실시간 반응(산나비식).</span></span>
+        </label>
+        <div id="expUnityDynOpts" class="hidden pt-1 flex items-center gap-3 text-[11px] text-zinc-400">
+          <label class="flex items-center gap-1">노멀 세기
+            <input type="range" id="expNormalStrength" min="0.2" max="4" step="0.05" value="1.4" class="w-20 align-middle">
+          </label>
+          <label class="flex items-center gap-1"><input type="checkbox" id="expNormalFlipY" checked> Y 뒤집기</label>
+        </div>
+      </div>
     </div>
 
     <!-- 파일명 -->
@@ -616,6 +635,7 @@
         <button id="clearBtn" data-icon="trash" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center bg-zinc-800" title="전체 지우기"></button>
         <div class="w-8 h-px bg-zinc-800 my-1"></div>
         <button id="glowToggle" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="글로우/조명 (산나비풍 네온 발광) — 클릭해서 설정 · 내보내기에도 적용">💡</button>
+        <button id="normalBtn" class="tool-btn w-10 h-10 rounded-lg flex items-center justify-center text-lg bg-zinc-800" title="노멀맵 (유니티 다이내믹 조명) — 맵 조명에 반응하는 하이비트. 클릭해서 미리보기·조절 · Unity 내보내기에 포함">🧭</button>
       </aside>
 
       <!-- 캔버스 -->
@@ -951,6 +971,7 @@
 <script src="src/tools.js"></script>
 <script src="src/refboard.js"></script>
 <script src="src/glow.js"></script>
+<script src="src/normalmap.js"></script>
 <script src="src/gameexport.js"></script>
 <script>
 /* =====================================================================
@@ -4332,6 +4353,18 @@ $('onionOpacitySlider').addEventListener('input', e => {
   $('expTabUnity').onclick = ()=>setMode('unity');
   $('expSheetCols').addEventListener('input', updateInfo);
   $('expUnityCols').addEventListener('input', updateInfo);
+  // Unity 라이팅 방식 라디오 → 다이내믹 옵션 표시 + 파일명 힌트
+  function unityLitMode(){ const r=document.querySelector('input[name="expUnityLit"]:checked'); return r?r.value:'baked'; }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="expUnityLit"]'), r=>{
+    r.addEventListener('change', ()=>{
+      const dyn = unityLitMode()==='dynamic';
+      $('expUnityDynOpts').classList.toggle('hidden', !dyn);
+      $('expExt').textContent = dyn ? 'albedo·노멀·에미션 + .meta' : '.png + .meta';
+    });
+  });
+  // 노멀맵 세기/뒤집기 → state.normalMap 동기화(미리보기 패널과 공유)
+  $('expNormalStrength').addEventListener('input', ()=>{ if(DF.NormalMap) DF.NormalMap.cfg().strength = parseFloat($('expNormalStrength').value); });
+  $('expNormalFlipY').addEventListener('change', ()=>{ if(DF.NormalMap) DF.NormalMap.cfg().flipY = $('expNormalFlipY').checked; });
 
   function dl(dataUrl, name){
     const a=document.createElement('a'); a.href=dataUrl; a.download=name; a.click();
@@ -4363,27 +4396,55 @@ $('onionOpacitySlider').addEventListener('input', e => {
         let cols = parseInt($('expUnityCols').value)||0; if(cols<=0)cols=n;
         const rows = Math.ceil(n/cols);
         const cell = res;   // 1× 고정
-        const sheet=document.createElement('canvas');
-        sheet.width=cell*cols; sheet.height=cell*rows;
-        const sx=sheet.getContext('2d'); sx.imageSmoothingEnabled=false;
-        state.frames.forEach((f,i)=>{
-          const cx=(i%cols)*cell, cy=Math.floor(i/cols)*cell;
-          sx.drawImage(frameToCanvas(f,1), cx, cy);   // frameToCanvas가 글로우도 구움
-        });
         const pv = ($('expUnityPivot').value||'0.5,0').split(',').map(Number);
         const pivotX = pv[0], pivotY = pv[1];
         const alignment = (pivotX===0.5&&pivotY===0.5) ? 0 : 9;   // 중앙이면 Center, 아니면 Custom
         const ppu = Math.max(1, parseInt($('expUnityPPU').value)||res);
-        const pngName = `${fname}_sheet.png`;
-        dl(sheet.toDataURL('image/png'), pngName);
-        const meta = DF.GameExport.buildUnityMeta({
-          baseName: fname, frameCount: n, cols,
-          cellW: cell, cellH: cell, sheetH: sheet.height,
-          ppu, pivotX, pivotY, alignment,
-        });
-        // .meta는 PNG 파일명 뒤에 .meta (Unity 규칙: <에셋>.png.meta)
-        dl('data:text/yaml;charset=utf-8,'+encodeURIComponent(meta), pngName+'.meta');
-        toast('Unity 시트 + .meta 다운로드! Assets에 함께 넣으세요.'); close();
+        // 프레임들을 시트 캔버스에 배치하는 헬퍼(그리기 콜백으로 albedo/normal/emission 공용)
+        const buildSheet=(drawFrame)=>{
+          const c=document.createElement('canvas'); c.width=cell*cols; c.height=cell*rows;
+          const cx=c.getContext('2d'); cx.imageSmoothingEnabled=false;
+          state.frames.forEach((f,i)=>{ const px=(i%cols)*cell, py=Math.floor(i/cols)*cell; drawFrame(cx,f,px,py); });
+          return c;
+        };
+        const lit = (document.querySelector('input[name="expUnityLit"]:checked')||{}).value || 'baked';
+        if (lit!=='dynamic') {
+          // 정적: 명암·글로우를 구운 스프라이트 한 장 (기존 동작)
+          const sheet=buildSheet((cx,f,px,py)=> cx.drawImage(frameToCanvas(f,1), px, py));
+          const pngName = `${fname}_sheet.png`;
+          dl(sheet.toDataURL('image/png'), pngName);
+          const meta = DF.GameExport.buildUnityMeta({ baseName: fname, frameCount: n, cols, cellW: cell, cellH: cell, sheetH: sheet.height, ppu, pivotX, pivotY, alignment });
+          dl('data:text/yaml;charset=utf-8,'+encodeURIComponent(meta), pngName+'.meta');
+          toast('Unity 시트 + .meta 다운로드! Assets에 함께 넣으세요.'); close();
+        } else {
+          // 다이내믹: albedo(글로우 안 구움) + 노멀맵 + 에미션 + 세팅 안내
+          const guidAlbedo = DF.GameExport.randHex(32);
+          const guidNormal = DF.GameExport.randHex(32);
+          const guidEmis   = DF.GameExport.randHex(32);
+          // 1) albedo — 글로우를 잠시 꺼서 순수 색만 굽는다(라이팅은 엔진이 계산)
+          const glowWas = state.glow.enabled; state.glow.enabled = false;
+          const albedo = buildSheet((cx,f,px,py)=> cx.drawImage(frameToCanvas(f,1), px, py));
+          state.glow.enabled = glowWas;
+          // 2) 노멀맵
+          const normal = buildSheet((cx,f,px,py)=> cx.drawImage(DF.NormalMap.buildFromFrame(f), 0,0,res,res, px,py,cell,cell));
+          // 3) 에미션(발광 레이어) — 없으면 빈(검정) 시트
+          let hasEmission=false;
+          const emission = buildSheet((cx,f,px,py)=>{ const em=DF.Glow.buildEmissive(f); if(em){ hasEmission=true; cx.drawImage(em, 0,0,res,res, px,py,cell,cell);} });
+          const aName=`${fname}_albedo.png`, nName=`${fname}_normal.png`, eName=`${fname}_emission.png`;
+          // albedo .meta에 노멀맵을 보조 텍스처로 연결(_NormalMap) → Sprite-Lit-Default 자동 사용
+          const albedoMeta = DF.GameExport.buildUnityMeta({ baseName: fname, frameCount: n, cols, cellW: cell, cellH: cell, sheetH: albedo.height, ppu, pivotX, pivotY, alignment, guid: guidAlbedo, secondary: [{name:'_NormalMap', guid: guidNormal}] });
+          const emisMeta = DF.GameExport.buildUnityMeta({ baseName: fname+'_emis', frameCount: n, cols, cellW: cell, cellH: cell, sheetH: emission.height, ppu, pivotX, pivotY, alignment, guid: guidEmis });
+          const normalMeta = DF.GameExport.buildTextureMeta({ guid: guidNormal, sRGB: false });  // 노멀맵은 linear
+          const guide = DF.GameExport.buildSetupGuide({ baseName: fname, hasEmission });
+          dl(albedo.toDataURL('image/png'), aName);
+          dl('data:text/yaml;charset=utf-8,'+encodeURIComponent(albedoMeta), aName+'.meta');
+          dl(normal.toDataURL('image/png'), nName);
+          dl('data:text/yaml;charset=utf-8,'+encodeURIComponent(normalMeta), nName+'.meta');
+          dl(emission.toDataURL('image/png'), eName);
+          dl('data:text/yaml;charset=utf-8,'+encodeURIComponent(emisMeta), eName+'.meta');
+          dl('data:text/plain;charset=utf-8,'+encodeURIComponent(guide), `${fname}_UNITY_세팅안내.txt`);
+          toast('다이내믹 조명 세트 다운로드! (albedo·노멀·에미션 + 안내) 같은 폴더에 넣으세요.'); close();
+        }
       } else {
         // GIF
         $('expSpinner').classList.remove('hidden'); $('expGoLabel').textContent='생성 중…';

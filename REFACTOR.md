@@ -113,7 +113,8 @@ window.DF = window.DF || {};
 - ⬜ 다음: `src/image.js` (크롭 모달 + detectPixelScale/splitSpriteSheet/convertImageWithDot/convertImage/loadFile). 인라인 `const crop = {`부터 `function toast` 직전까지.
 - ➕ (하이비트 세트) 발광 레이어 글로우(layer.emissive + glow.source), 휴시프트 명암(tools.hueShiftShade + state.shadeHue/shadeHueAmount), 림라이트 도구(tools.rimLightApply + rimlight 툴 등록 + 팝오버 select/color 컨트롤), 팔레트 램프(color.rampFromColor + 🎚 버튼). 조사 근거는 대화 참고.
 - ➕ (신규 기능 모듈) `src/glow.js` — 글로우/조명(산나비풍 블룸). `DF.Glow`. render.js render() 끝에서 미리보기, frameToCanvas에서 bake(내보내기 굽기). state.glow, serialize/restore 연결. 💡 툴바 버튼 설정 패널.
-- ➕ (신규 기능 모듈) `src/gameexport.js` — 유니티 전용 내보내기. `DF.GameExport.buildUnityMeta()`로 스프라이트 시트 .meta(YAML, SpriteMode Multiple) 생성. 내보내기 모달 🎮 Unity 탭에서 시트 PNG + .meta 동시 다운로드.
+- ➕ (신규 기능 모듈) `src/gameexport.js` — 유니티 전용 내보내기. `DF.GameExport.buildUnityMeta()`로 스프라이트 시트 .meta(YAML, SpriteMode Multiple) 생성. 내보내기 모달 🎮 Unity 탭에서 시트 PNG + .meta 동시 다운로드. **다이내믹 조명(2D URP)** 추가: buildUnityMeta에 `secondary:[{name:'_NormalMap',guid}]` 넘기면 spriteSheet.secondaryTextures로 노멀맵 자동 연결(Sprite-Lit-Default가 맵 조명에 반응). `buildTextureMeta`(노멀/에미션용 단일 텍스처 meta, 노멀은 sRGB off=linear), `buildSetupGuide`(한국어 URP/Light2D/Bloom 세팅 안내).
+- ➕ (신규 기능 모듈) `src/normalmap.js` — `DF.NormalMap`. 프레임 실루엣(알파) 거리변환 베벨 + 밝기 디테일 → Sobel 법선 → OpenGL(+Y) RGB 인코딩. Laigter/Sprite DLight식 자동 노멀맵. 🧭 툴바 버튼(미리보기+세기/경사/디테일/Y뒤집기 슬라이더). 내보내기 🎮 Unity 탭 "다이내믹 조명" 라디오 선택 시 albedo(글로우 안 구움)+노멀맵+에미션 3장 + 각 .meta + 세팅안내.txt 동시 저장. state.normalMap 설정 연동. gameexport.js보다 먼저 로드.
 - ➕ (신규 기능 모듈) `src/refboard.js` — 참고판(무드보드). 분리 작업과 무관한 새 기능이지만 동일한 DF 패턴으로 작성. `DF.RefBoard` 노출. state에 `refBoards[]`/`refBoardEdit` 추가, serializeProject/loadProjectData/autoSave에 연결. 작업공간(canvasWrap)에 참고 이미지 자유 배치(드래그/리사이즈/투명도/삭제/드래그드롭), 편집 off면 그 위로 그리기 통과.
 
 ## 진행 순서 (Claude Code)

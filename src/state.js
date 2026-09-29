@@ -95,6 +95,8 @@ const state = {
   // 글로우/조명(산나비풍 네온 발광 블룸). 밝은 픽셀이 번져 빛나며, 내보내기에도 구워짐.
   // source: 'emissive'(발광 지정 레이어만·정석) | 'bright'(밝기 임계값) | 'both'
   glow: { enabled: false, source: 'emissive', threshold: 0.6, intensity: 0.9, radius: 2.2, tint: null },
+  // 노멀맵 자동 생성 설정(유니티 다이내믹 조명용). buildFromFrame이 참조.
+  normalMap: { strength: 1.4, bevel: 3, detail: 0.35, flipY: true },
 };
 
 // ---------- 데이터 모델: 프레임 = 여러 레이어 + 지속시간 ----------
