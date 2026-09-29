@@ -33,6 +33,7 @@ const state = {
   bucketErase: false,             // (구) 페인트 통 지우기 — eraseMode로 통합
   eraseMode: false,               // 지우기 모드: 모든 그리기 도구가 투명(null)을 칠함
   brushSize: 1,                   // 펜/지우개 브러시 크기 (한 변의 칸 수)
+  penMode: 'normal',              // 펜 모드: normal | dotify(참고/밑그림 색으로 도트화) | shade(명암) | dither(체크무늬)
   wandTol: 48,                    // 마법봉 색 유사도 허용치 (0~255)
   bucketTol: 0,                   // 페인트 통 색 유사도 (0=완전 같은 색만)
   wandGlobal: true,               // 마법봉: true=전체 유사색, false=연결된 영역만

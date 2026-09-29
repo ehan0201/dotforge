@@ -25,7 +25,10 @@ function applyTool(cell) {
   if (!cell) return;
   const f = curPixels();   // 활성 레이어의 픽셀
   switch (state.tool) {
-    case 'pen':    paintCell(cell); break;
+    case 'pen':
+      // 펜 모드: 명암 펜이면 셰이딩으로, 그 외(기본/도트화/디더)는 paintCell이 처리
+      if (state.penMode === 'shade' && !state.eraseMode) { shadeCell(cell); break; }
+      paintCell(cell); break;
     case 'eraser': paintCell(cell); break;
     case 'shade':  shadeCell(cell); break;
     case 'wand':   magicWandSelect(cell); return;
@@ -133,16 +136,32 @@ function setPixelMirrored(f, x, y, val) {
   if (state.mirrorX && state.mirrorY) put(res - 1 - x, res - 1 - y);
 }
 
-// 펜/지우개용: 브러시 크기(size×size)만큼 활성 레이어에 칠함 (render 없이)
+// 도트화 펜: 이 셀 위치의 참고/밑그림 색을 뽑는다 (참고판 우선, 없으면 밑그림). 없으면 null.
+function sampleDotColor(x, y) {
+  if (x < 0 || y < 0 || x >= state.res || y >= state.res) return null;
+  const RB = window.DF && DF.RefBoard;
+  if (RB && RB.hasImages && RB.hasImages()) { const c = RB.sampleCellColor(x, y); if (c) return c; }
+  if (state.refVisible && $('refImage') && $('refImage').dataset.src) { const c = sampleRefColor(x, y); if (c) return c; }
+  return null;
+}
+
+// 펜/지우개용: 브러시 크기(size×size)만큼 활성 레이어에 칠함 (render 없이).
+// 펜 모드가 dotify면 칸마다 참고색을 뽑아 칠하고, dither면 체크무늬로만 칠한다.
 function paintCell(cell) {
   if (!cell) return;
   const f = curPixels();
-  const val = paintValue();
+  const baseVal = paintValue();
   const s = state.brushSize;
   const off = Math.floor((s - 1) / 2);
+  const erasing = (state.eraseMode || state.tool === 'eraser');
+  const mode = (state.tool === 'pen' && !erasing) ? state.penMode : 'normal';
   for (let dy = 0; dy < s; dy++)
     for (let dx = 0; dx < s; dx++) {
-      setPixelMirrored(f, cell.x - off + dx, cell.y - off + dy, val);
+      const x = cell.x - off + dx, y = cell.y - off + dy;
+      let val = baseVal;
+      if (mode === 'dotify') { val = sampleDotColor(x, y); if (val == null) continue; }  // 참고색 없는 칸은 건너뜀
+      else if (mode === 'dither' && ((x + y) & 1) !== 0) continue;                        // 체크무늬 한 칸씩 비움
+      setPixelMirrored(f, x, y, val);
     }
 }
 

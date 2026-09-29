@@ -3176,8 +3176,9 @@ function svgIcon(name, size) {
 // 각 도구가 가진 세부 설정 정의. stats()=툴팁에 보일 현재값, controls=팝오버 편집 항목
 const TOOL_SETTINGS = {
   pen: {
-    stats: () => [['크기', state.brushSize + ' px'], ['대칭', symText()]],
+    stats: () => [['모드', ({normal:'기본',dotify:'도트화',shade:'명암',dither:'디더'})[state.penMode]||'기본'], ['크기', state.brushSize + ' px'], ['대칭', symText()]],
     controls: [
+      { type:'select', label:'펜 모드', options:[['normal','✏ 기본'],['dotify','▩ 도트화 (참고색)'],['shade','◑ 명암'],['dither','▦ 디더']], get:()=>state.penMode, set:v=>{ state.penMode=v; }, hint:'도트화=참고/밑그림 위를 그어 그 색으로 · 명암=그을수록 진하게 · 디더=체크무늬' },
       { type:'range', label:'브러시 크기', min:1, max:16, get:()=>state.brushSize, set:v=>{ state.brushSize=v; syncBrushUI(); }, unit:'px' },
     ],
   },
@@ -3393,6 +3394,11 @@ function invItems() {
     { id:'shade',  icon:'shade',  name:'명암', type:'tool', desc:'원형으로 명암을 넣습니다. 세기·방향 조절 가능 (재클릭)' },
     { id:'potrace',icon:'potrace',name:'부분 도트화', type:'tool', desc:'밑그림에서 드래그한 영역만 도트로 변환해 새 레이어에 만듭니다' },
     { id:'rimlight',icon:'rimlight',name:'림라이트', type:'tool', desc:'광원 방향의 가장자리를 밝게 (하이비트 테두리광). 방향·두께 조절 (재클릭)' },
+    // ---- 펜 모드 (기존 기능을 펜처럼 쭉쭉 그어서) ----
+    { id:'pen_dotify', emoji:'▩', name:'도트화 펜', type:'action', desc:'펜으로 쭉 그으면 참고/밑그림 색으로 도트화됩니다 (프리핸드 부분도트화)', run:()=>{ state.penMode='dotify'; selectTool('pen'); toast('도트화 펜 — 참고 이미지 위를 그어보세요'); } },
+    { id:'pen_shade', emoji:'◑', name:'명암 펜', type:'action', desc:'펜으로 칠할수록 어둡게/밝게 (명암을 펜으로). 세기·방향은 명암 도구 설정과 공유', run:()=>{ state.penMode='shade'; selectTool('pen'); toast('명암 펜'); } },
+    { id:'pen_dither', emoji:'▦', name:'디더 펜', type:'action', desc:'현재 색을 체크무늬(디더)로 그립니다 — 그라데이션·질감용', run:()=>{ state.penMode='dither'; selectTool('pen'); toast('디더 펜'); } },
+    { id:'pen_normal', emoji:'✏', name:'기본 펜', type:'action', desc:'펜을 일반 모드로 되돌립니다', run:()=>{ state.penMode='normal'; selectTool('pen'); } },
     { id:'fill_toggle', icon: state.rectFill?'fill':'outline', name: state.rectFill?'채움':'테두리', type:'toggle', desc:'사각형/도형을 채울지 테두리만 그릴지', run:()=>{ state.rectFill=!state.rectFill; toast(state.rectFill?'사각형: 채움':'사각형: 테두리'); } },
     { id:'grid',   icon:'grid', name:'그리드', type:'toggle', active:state.showGrid, desc:'격자 표시를 켜고 끕니다', run:()=>{ state.showGrid=!state.showGrid; $('gridToggle')?.classList.toggle('active',state.showGrid); drawGrid(); } },
     { id:'mirrorX',icon:'mirrorX', name:'좌우대칭', type:'toggle', active:state.mirrorX, desc:'좌우 대칭으로 동시에 그립니다', run:()=>{ state.mirrorX=!state.mirrorX; $('mirrorXBtn')?.classList.toggle('active',state.mirrorX); } },
@@ -3778,11 +3784,16 @@ function drawBrushHover(cell) {
   }
   const cellPx = state.display / state.res;
   const erasing = state.tool === 'eraser';
-  const stroke = erasing ? 'rgba(255,120,120,0.9)' : (state.tool === 'shade' ? 'rgba(120,200,255,0.9)' : 'rgba(255,255,255,0.9)');
+  // 펜 모드 반영: 명암 펜은 원형, 도트화 펜은 초록 힌트
+  const penShade = (state.tool === 'pen' && state.penMode === 'shade');
+  const penDotify = (state.tool === 'pen' && state.penMode === 'dotify');
+  const circular = (state.tool === 'shade' || penShade);
+  const stroke = erasing ? 'rgba(255,120,120,0.9)'
+    : (circular ? 'rgba(120,200,255,0.9)' : (penDotify ? 'rgba(150,255,150,0.95)' : 'rgba(255,255,255,0.9)'));
   gridCtx.save();
   gridCtx.strokeStyle = stroke;
   gridCtx.lineWidth = 1.5;
-  if (state.tool === 'shade') {
+  if (circular) {
     // 명암은 원형 반경 = 브러시 크기 (cell 중심 기준)
     const r = Math.max(1, state.brushSize) * cellPx;
     const cx = (cell.x + 0.5) * cellPx, cy = (cell.y + 0.5) * cellPx;
@@ -3791,7 +3802,7 @@ function drawBrushHover(cell) {
     const s = state.brushSize, off = Math.floor((s - 1) / 2);
     const gx = (cell.x - off) * cellPx, gy = (cell.y - off) * cellPx, gw = s * cellPx;
     gridCtx.strokeRect(gx + 0.5, gy + 0.5, gw, gw);
-    gridCtx.fillStyle = erasing ? 'rgba(255,120,120,0.12)' : (state.color + '33');
+    gridCtx.fillStyle = erasing ? 'rgba(255,120,120,0.12)' : (penDotify ? 'rgba(150,255,150,0.15)' : (state.color + '33'));
     gridCtx.fillRect(gx, gy, gw, gw);
   }
   gridCtx.restore();
