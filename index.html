@@ -87,20 +87,15 @@
         <h2 class="text-lg font-bold">새 프로젝트 설정</h2>
       </div>
 
-      <!-- 캔버스 크기 -->
+      <!-- 캔버스 크기: 직접 입력 + ×2/÷2 -->
       <div class="mb-5">
         <div class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold mb-2">캔버스 크기</div>
-        <div class="flex flex-wrap gap-2 mb-2">
-          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="16">16</button>
-          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="32">32</button>
-          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="48">48</button>
-          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="64">64</button>
-          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="96">96</button>
-          <button class="create-res px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-sm mono" data-res="128">128</button>
-          <div class="flex items-center gap-1.5 ml-auto">
-            <input type="number" id="createRes" value="32" min="4" max="512" class="w-20 bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm mono text-center focus:outline-none focus:border-indigo-500">
-            <span class="text-xs text-zinc-500 mono">px²</span>
-          </div>
+        <div class="flex items-center gap-2">
+          <input type="number" id="createRes" value="32" min="4" max="512" class="w-24 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-base mono text-center focus:outline-none focus:border-indigo-500">
+          <span class="text-sm text-zinc-500 mono">px²</span>
+          <button id="createResHalf" class="ml-2 w-11 py-2 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-zinc-600 text-sm mono" title="절반 크기">÷2</button>
+          <button id="createResDouble" class="w-11 py-2 rounded-lg bg-zinc-800 border border-zinc-700 hover:border-zinc-600 text-sm mono" title="2배 크기">×2</button>
+          <span id="createResHint" class="text-xs text-zinc-500 ml-1"></span>
         </div>
       </div>
 
@@ -267,17 +262,25 @@
 <!-- ===================== 인벤토리 (TAB) ===================== -->
 <div id="inventory" class="fixed inset-0 z-[65] bg-black/60 backdrop-blur-sm hidden items-center justify-center p-4">
   <div class="bg-zinc-900 border border-zinc-700 rounded-2xl w-full max-w-2xl p-5 shadow-2xl">
-    <div class="flex items-center justify-between mb-1">
-      <h2 class="font-bold flex items-center gap-2">🎒 인벤토리</h2>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="font-bold flex items-center gap-2">🔍 모든 기능</h2>
       <button id="invClose" class="text-zinc-500 hover:text-zinc-200 text-lg">✕</button>
     </div>
-    <p class="text-[11px] text-zinc-500 mb-4"><b class="text-zinc-300">클릭</b>: 사용 · <b class="text-zinc-300">Shift+클릭</b> 또는 <b class="text-zinc-300">항목 위에서 숫자키</b>: 핫바에 지정 · TAB 떼면 닫힘</p>
 
-    <!-- 3×9 아이템 그리드 (마인크래프트식) -->
+    <!-- 검색 -->
+    <input id="invSearch" type="text" autocomplete="off" spellcheck="false"
+      placeholder="기능 검색…  예) 글로우 · 내보내기 · 대칭 · 노멀맵 · 참고"
+      class="w-full mb-2 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500">
+    <p class="text-[11px] text-zinc-500 mb-3"><b class="text-zinc-300">클릭</b>: 실행 · <b class="text-zinc-300">Shift+클릭</b>/<b class="text-zinc-300">숫자키</b>: 핫바 지정 · <b class="text-zinc-300">Enter</b>: 첫 결과 실행 · TAB 홀드로 빠르게 열기</p>
+
+    <!-- 검색 결과 리스트 (검색어 있을 때) -->
+    <div id="invList" class="hidden max-h-[52vh] overflow-y-auto space-y-1 mb-2 pr-1"></div>
+
+    <!-- 3×N 아이템 그리드 (검색어 없을 때) -->
     <div id="invGrid" class="grid grid-cols-9 gap-1.5 mb-5"></div>
 
     <!-- 핫바 -->
-    <div class="border-t border-zinc-800 pt-4">
+    <div id="invHotbarSection" class="border-t border-zinc-800 pt-4">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">핫바 <span class="text-zinc-600 normal-case">— 숫자키 1~9</span></h3>
         <button id="hotbarResetBtn" class="text-[10px] px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400">기본값</button>
@@ -764,7 +767,7 @@
       <!-- 핫바 -->
       <div class="shrink-0 flex items-center justify-center gap-1 py-2 px-4 flex-wrap overflow-hidden">
         <div id="hotbar" class="flex gap-1 flex-wrap justify-center"></div>
-        <button id="invBtn" class="ml-3 text-[11px] px-2.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 whitespace-nowrap" title="인벤토리 (TAB 홀드)">⊞ 인벤토리 <span class="text-zinc-600">TAB</span></button>
+        <button id="invBtn" class="ml-3 text-[11px] px-2.5 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 whitespace-nowrap" title="모든 기능 검색 — 도구·조명·내보내기 등 전부 여기서 찾기 (TAB 홀드로 빠르게)">🔍 모든 기능 <span class="text-zinc-600">TAB</span></button>
       </div>
     </div>
   </main>
@@ -2766,9 +2769,16 @@ function showLobbyView(which) {
   if (m) m.style.display = which === 'create' ? 'none' : '';
   if (c) c.style.display = which === 'create' ? '' : 'none';
 }
+function createResHint(res) {
+  if (res <= 24) return '아이콘·작은 스프라이트';
+  if (res <= 48) return '캐릭터 · 권장';
+  if (res <= 80) return '상세 스프라이트';
+  if (res <= 128) return '고해상도 · 하이비트';
+  return '무거움 · 정밀 작업';
+}
 function syncCreateUI() {
   $('createRes').value = createCfg.res;
-  document.querySelectorAll('.create-res').forEach(b => b.classList.toggle('sel', +b.dataset.res === createCfg.res));
+  $('createResHint').textContent = createResHint(createCfg.res);
   document.querySelectorAll('.create-mode').forEach(b => b.classList.toggle('sel', b.dataset.mode === (createCfg.hiBit ? 'hibit' : 'normal')));
   document.querySelectorAll('.create-src').forEach(b => b.classList.toggle('sel', b.dataset.src === createCfg.source));
   $('createGrid').checked = createCfg.grid;
@@ -2780,11 +2790,12 @@ function openCreate() { showLobbyView('create'); syncCreateUI(); }
 $('lobbyNewBtn').onclick = openCreate;
 $('createBack').onclick = () => { _pendingProjectOpts = null; showLobbyView('main'); };
 
-document.querySelectorAll('.create-res').forEach(b => b.onclick = () => { createCfg.res = +b.dataset.res; syncCreateUI(); });
 $('createRes').addEventListener('input', () => {
   createCfg.res = Math.max(4, Math.min(512, parseInt($('createRes').value) || 32));
-  document.querySelectorAll('.create-res').forEach(b => b.classList.toggle('sel', +b.dataset.res === createCfg.res));
+  $('createResHint').textContent = createResHint(createCfg.res);
 });
+$('createResDouble').onclick = () => { createCfg.res = Math.min(512, createCfg.res * 2); syncCreateUI(); };
+$('createResHalf').onclick = () => { createCfg.res = Math.max(4, Math.floor(createCfg.res / 2)); syncCreateUI(); };
 document.querySelectorAll('.create-mode').forEach(b => b.onclick = () => {
   createCfg.hiBit = b.dataset.mode === 'hibit';
   // 하이비트 기본값: 글로우 켜고 그리드 끄고, 크기가 작으면 96으로 올림 (사용자가 아래서 다시 조정 가능)
@@ -3381,6 +3392,7 @@ function invItems() {
     { id:'select', icon:'select', name:'선택', type:'tool', desc:'영역을 선택해 이동/복사. Space+드래그로도 이동' },
     { id:'shade',  icon:'shade',  name:'명암', type:'tool', desc:'원형으로 명암을 넣습니다. 세기·방향 조절 가능 (재클릭)' },
     { id:'potrace',icon:'potrace',name:'부분 도트화', type:'tool', desc:'밑그림에서 드래그한 영역만 도트로 변환해 새 레이어에 만듭니다' },
+    { id:'rimlight',icon:'rimlight',name:'림라이트', type:'tool', desc:'광원 방향의 가장자리를 밝게 (하이비트 테두리광). 방향·두께 조절 (재클릭)' },
     { id:'fill_toggle', icon: state.rectFill?'fill':'outline', name: state.rectFill?'채움':'테두리', type:'toggle', desc:'사각형/도형을 채울지 테두리만 그릴지', run:()=>{ state.rectFill=!state.rectFill; toast(state.rectFill?'사각형: 채움':'사각형: 테두리'); } },
     { id:'grid',   icon:'grid', name:'그리드', type:'toggle', active:state.showGrid, desc:'격자 표시를 켜고 끕니다', run:()=>{ state.showGrid=!state.showGrid; $('gridToggle')?.classList.toggle('active',state.showGrid); drawGrid(); } },
     { id:'mirrorX',icon:'mirrorX', name:'좌우대칭', type:'toggle', active:state.mirrorX, desc:'좌우 대칭으로 동시에 그립니다', run:()=>{ state.mirrorX=!state.mirrorX; $('mirrorXBtn')?.classList.toggle('active',state.mirrorX); } },
@@ -3401,6 +3413,17 @@ function invItems() {
     { id:'gif',    icon:'gif', name:'GIF 내보내기', type:'action', desc:'애니메이션을 GIF로 저장', run:()=>exportGif() },
     { id:'png',    icon:'image', name:'PNG 내보내기', type:'action', desc:'현재 프레임을 PNG로 저장', run:()=>exportFrame() },
     { id:'sheet',  icon:'sheet', name:'스프라이트 시트', type:'action', desc:'모든 프레임을 한 장으로 저장', run:()=>exportSheet() },
+    // ---- 조명/하이비트 ----
+    { id:'glow',   emoji:'💡', name:'글로우 / 조명', type:'action', desc:'산나비풍 네온 발광 패널 열기 (발광 레이어가 번져 빛남)', run:()=>{ if(window.DF&&DF.Glow) DF.Glow.togglePanel(); } },
+    { id:'normalmap', emoji:'🧭', name:'노멀맵 (다이내믹 조명)', type:'action', desc:'유니티 맵 조명에 반응하는 노멀맵 미리보기·조절', run:()=>{ if(window.DF&&DF.NormalMap) DF.NormalMap.togglePanel(); } },
+    { id:'ramp',   emoji:'🎚', name:'팔레트 램프', type:'action', desc:'현재 색으로 휴시프트 5색 명암 램프를 즐겨찾기에 추가', run:()=>$('rampBtn')?.click() },
+    // ---- 참고 이미지 / 밑그림 ----
+    { id:'refadd', emoji:'🧷', name:'참고 이미지 추가', type:'action', desc:'작업공간에 참고(무드보드) 이미지를 자유롭게 올립니다', run:()=>{ if(window.DF&&DF.RefBoard&&!state.refBoardEdit) DF.RefBoard.setEdit(true); $('refBoardFile')?.click(); } },
+    { id:'refedit', emoji:'✥', name:'참고 이미지 편집 모드', type:'toggle', active: state.refBoardEdit, desc:'참고 이미지 드래그·크기조절 모드를 켜고 끕니다', run:()=>{ if(window.DF&&DF.RefBoard) DF.RefBoard.toggleEdit(); } },
+    { id:'underlay', emoji:'🖼', name:'밑그림 불러오기', type:'action', desc:'트레이싱용 밑그림(레퍼런스)을 캔버스에 깝니다', run:()=>$('refInput')?.click() },
+    // ---- 가져오기 / 내보내기 ----
+    { id:'import', emoji:'⬆', name:'이미지 불러와 변환', type:'action', desc:'이미지를 도트로 변환해 가져옵니다', run:()=>$('fileInput')?.click() },
+    { id:'export', emoji:'⬇', name:'내보내기 (PNG·시트·GIF·Unity)', type:'action', desc:'내보내기 창을 엽니다', run:()=>$('exportBtn')?.click() },
   ];
 }
 function invItemMeta(id){ return invItems().find(t=>t.id===id); }
@@ -3447,10 +3470,65 @@ function updateHotbarActive() {
   renderHotbar();
 }
 
-function openInventory() { $('inventory').classList.remove('hidden'); $('inventory').classList.add('flex'); renderInventory(); }
-function closeInventory() { $('inventory').classList.add('hidden'); $('inventory').classList.remove('flex'); hideTooltip(); }
-function toggleInventory() { $('inventory').classList.contains('hidden') ? openInventory() : closeInventory(); }
+// 인벤토리 = 검색 가능한 "모든 기능" 팔레트.
+// invPersistent: 툴바 버튼/단축키로 연 경우 true (TAB 떼도 안 닫힘, 검색창 포커스).
+let invPersistent = false;
+function invIconHtml(t, size) { return t.emoji ? `<span style="font-size:${(size||20)-1}px;line-height:1">${t.emoji}</span>` : svgIcon(t.icon, size||20); }
+
+function openInventory(persistent) {
+  invPersistent = !!persistent;
+  $('inventory').classList.remove('hidden'); $('inventory').classList.add('flex');
+  const s = $('invSearch'); if (s) s.value = '';
+  renderInventory();
+  applyInvSearch('');
+  if (persistent && s) setTimeout(() => { s.focus(); s.select(); }, 30);
+}
+function closeInventory() { $('inventory').classList.add('hidden'); $('inventory').classList.remove('flex'); hideTooltip(); invPersistent = false; }
+function toggleInventory() { $('inventory').classList.contains('hidden') ? openInventory(true) : closeInventory(); }
 function renderInventory() { renderInvGrid(); renderInvHotbar(); }
+
+// 검색어 있으면 결과 리스트, 없으면 그리드+핫바
+function applyInvSearch(q) {
+  q = (q || '').trim().toLowerCase();
+  const searching = q.length > 0;
+  $('invList')?.classList.toggle('hidden', !searching);
+  $('invGrid')?.classList.toggle('hidden', searching);
+  $('invHotbarSection')?.classList.toggle('hidden', searching);
+  if (searching) renderInvList(q);
+}
+function invMatches(t, q) { return (t.name||'').toLowerCase().includes(q) || (t.desc||'').toLowerCase().includes(q) || (t.id||'').toLowerCase().includes(q); }
+let _invFiltered = [];
+function renderInvList(q) {
+  const el = $('invList'); if (!el) return;
+  el.innerHTML = '';
+  _invFiltered = invItems().filter(t => invMatches(t, q));
+  if (!_invFiltered.length) { el.innerHTML = '<div class="text-center text-zinc-500 text-sm py-8">검색 결과가 없어요</div>'; return; }
+  _invFiltered.forEach((t, idx) => {
+    const b = document.createElement('button');
+    const isTool = t.type === 'tool';
+    const tag = isTool ? '도구' : (t.type === 'action' ? '실행' : '설정');
+    const tagColor = isTool ? 'text-indigo-300' : (t.type === 'action' ? 'text-amber-400' : 'text-sky-400');
+    b.className = 'w-full flex items-center gap-3 text-left px-3 py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 border transition-colors ' + (idx === 0 ? 'border-indigo-500/60' : 'border-transparent hover:border-zinc-600');
+    b.innerHTML = `<span class="w-6 flex items-center justify-center text-zinc-200 shrink-0">${invIconHtml(t, 20)}</span>`
+      + `<span class="flex-1 min-w-0"><span class="text-sm text-zinc-100">${t.name}</span>`
+      + `<span class="block text-[11px] text-zinc-500 truncate">${t.desc || ''}</span></span>`
+      + `<span class="text-[10px] ${tagColor} shrink-0">${tag}</span>`;
+    b.onclick = () => runInvItem(t);
+    el.appendChild(b);
+  });
+}
+function runInvItem(t) {
+  if (t.type === 'tool') {
+    state.oneShotReturn = hotbar[hotbarSel] || state.prevTool || 'pen';
+    selectTool(t.id); closeInventory();
+  } else {
+    t.run && t.run();
+    if (t.type === 'toggle') {   // 토글은 창 유지 + 상태 갱신
+      renderInvGrid();
+      const s = $('invSearch'); if (s && s.value.trim()) renderInvList(s.value.trim().toLowerCase());
+    } else closeInventory();
+  }
+}
 function renderInvGrid() {
   const el = $('invGrid'); if (!el) return;
   el.innerHTML = '';
@@ -3461,7 +3539,7 @@ function renderInvGrid() {
     const inHotbar = isTool ? hotbar.indexOf(t.id) : -1;
     b.className = 'relative aspect-square rounded-lg border-2 flex flex-col items-center justify-center gap-0.5 transition-colors ' +
       (active ? 'border-indigo-400 bg-indigo-600/20' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700');
-    b.innerHTML = `<span class="leading-none">${svgIcon(t.icon, 22)}</span><span class="text-[8px] text-zinc-400 leading-tight text-center px-0.5">${t.name}</span>` +
+    b.innerHTML = `<span class="leading-none">${invIconHtml(t, 22)}</span><span class="text-[8px] text-zinc-400 leading-tight text-center px-0.5">${t.name}</span>` +
       (inHotbar>=0 ? `<span class="absolute top-0.5 right-1 text-[9px] mono text-indigo-300">${inHotbar+1}</span>` : '') +
       (isTool ? '' : `<span class="absolute top-0.5 left-1 text-[8px] ${t.type==='action'?'text-amber-400':'text-sky-400'}">${t.type==='action'?'⚡':'⚙'}</span>`);
     // 커스텀 툴팁 (마우스 올리면 설명)
@@ -3775,8 +3853,14 @@ function setEraseMode(on) {
 $('eraseModeBtn').onclick = () => setEraseMode(!state.eraseMode);
 
 // 인벤토리 / 핫바
-$('invBtn').onclick = toggleInventory;
+$('invBtn').onclick = () => openInventory(true);
 $('invClose').onclick = closeInventory;
+// 검색: 입력하면 필터, Enter로 첫 결과 실행, Esc로 검색 비우기(있으면)→닫기
+$('invSearch').addEventListener('input', e => applyInvSearch(e.target.value));
+$('invSearch').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); if (_invFiltered && _invFiltered[0]) runInvItem(_invFiltered[0]); }
+  else if (e.key === 'Escape') { e.stopPropagation(); if (e.target.value) { e.target.value = ''; applyInvSearch(''); } else closeInventory(); }
+});
 // 좌측 툴바 접기/펼치기
 $('inventory').addEventListener('click', e => { if (e.target === $('inventory')) closeInventory(); });
 
@@ -4866,7 +4950,7 @@ window.addEventListener('keydown', e => {
   // TAB: 누르는 동안 인벤토리 (홀드). 입력창이 아닐 때만
   if (e.key === 'Tab' && !typing) {
     e.preventDefault();
-    if ($('inventory').classList.contains('hidden')) openInventory();
+    if ($('inventory').classList.contains('hidden')) openInventory(false);
     return;
   }
   // 입력창 포커스면 단축키 전부 무시
@@ -4948,8 +5032,8 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   keysDown.delete(e.key.toLowerCase());
   if (e.key === 'Tab') {
-    // 홀드 종료: 인벤토리 닫기
-    if (!$('inventory').classList.contains('hidden')) closeInventory();
+    // 홀드 종료: 인벤토리 닫기 (버튼/단축키로 연 지속 모드는 유지)
+    if (!invPersistent && !$('inventory').classList.contains('hidden')) closeInventory();
   }
   if (e.key === 'Shift') {
     state.shiftHeld = false;
