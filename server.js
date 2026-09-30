@@ -17,7 +17,7 @@ const https = require('https');
 // ---------- 설정 ----------
 const PORT = parseInt(process.env.PORT || '8787', 10);
 // 이미지 생성 모델. 바뀌면 여기만 수정.
-//  - gemini-2.5-flash-image : 현행 안정
+//  - gemini-2.5-flash-image : 현행 안정 
 //  - gemini-3.1-flash-image : 최신(있으면 이걸로)
 const MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
 const HOST = 'generativelanguage.googleapis.com';

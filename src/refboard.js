@@ -43,7 +43,8 @@ function layoutTile(el, b) {
   el.style.top    = (b.fy * 100) + '%';
   el.style.width  = (b.fw * 100) + '%';
   el.style.height = (heightFrac(b) * 100) + '%';
-  el.style.opacity = b.opacity;
+  // Shift 홀드 시: 원본 색을 정확히 보고 스포이드로 찍도록 완전 불투명으로 노출
+  el.style.opacity = (state.shiftHeld && !state.refBoardEdit) ? 1 : b.opacity;
 }
 
 // ---------- GIF 디코드 / 프레임 ----------
@@ -287,9 +288,9 @@ function showTileMenu(b, cx, cy) {
   const orow = row();
   const olab = document.createElement('span'); olab.textContent = '투명도'; olab.style.color = '#a1a1aa';
   const op = document.createElement('input');
-  op.type = 'range'; op.min = '10'; op.max = '100'; op.value = Math.round(b.opacity * 100); op.style.flex = '1';
+  op.type = 'range'; op.min = '0'; op.max = '100'; op.value = Math.round(b.opacity * 100); op.style.flex = '1';
   op.addEventListener('input', () => {
-    b.opacity = Math.max(0.1, op.value / 100);
+    b.opacity = Math.max(0, op.value / 100);
     const el = $('refBoardLayer').querySelector(`[data-id="${b.id}"]`);
     if (el) el.style.opacity = b.opacity;
   });
@@ -429,7 +430,7 @@ function restore(arr) {
         natW: num(b.natW, 0), natH: num(b.natH, 0),
         fx: num(b.fx, 0.4), fy: num(b.fy, 0.2),
         fw: Math.max(0.02, Math.min(2, num(b.fw, 0.26))),
-        opacity: Math.max(0.1, Math.min(1, num(b.opacity, 1))),
+        opacity: Math.max(0, Math.min(1, num(b.opacity, 1))),
         locked: !!b.locked, flipX: !!b.flipX,
         gif, frames: null, playMode: pm, startFrame: Math.max(0, num(b.startFrame, 0)),
       });
