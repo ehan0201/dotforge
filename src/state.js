@@ -77,6 +77,8 @@ const state = {
   // 각 항목 {id, src, natW, natH, fx, fy, fw, opacity} — fx/fy/fw는 canvasWrap 대비 비율(0~1)
   refBoards: [],
   refBoardEdit: false,            // 참고판 편집 모드(드래그/리사이즈). off면 그 위로 그대로 그림
+  refBgRemove: false,             // 참고/밑그림 불러올 때 배경 자동 제거(누끼)
+  refsHidden: false,              // 참조 이미지(밑그림+참고판) 일괄 숨김 상태 (H 토글)
   _refBoardSeq: 0,                // 참고판 id 시퀀스
   // 밑그림(레퍼런스) 확장 상태
   ref: {

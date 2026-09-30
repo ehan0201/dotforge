@@ -382,7 +382,12 @@ function readFiles(files, fx, fy) {
       im.onload = () => {
         const ofx = fx == null ? null : fx + k * 0.02;
         const ofy = fy == null ? null : fy + k * 0.02;
-        addImage(rd.result, im.naturalWidth, im.naturalHeight, ofx, ofy);
+        let src = rd.result;
+        // 배경 제거 옵션이 켜져 있으면 누끼 처리된 PNG로 교체
+        if (state.refBgRemove && DF.Cutout) {
+          try { const cut = DF.Cutout.fromImage(im, { tol: 30, local: 14 }); if (cut) src = cut; } catch (e) {}
+        }
+        addImage(src, im.naturalWidth, im.naturalHeight, ofx, ofy);
         if (!state.refBoardEdit) setEdit(true);
       };
       im.onerror = () => { if (typeof toast === 'function') toast('이미지를 불러오지 못했어요.'); };

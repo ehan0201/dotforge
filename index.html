@@ -716,6 +716,7 @@
             <span class="px-1" title="참고판">🖼️</span>
             <button id="refBoardAdd" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200">＋ 참고</button>
             <button id="refBoardEditBtn" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300" title="편집 모드: 드래그로 이동·모서리로 크기조절. 끄면 그 위로 그림">편집</button>
+            <label class="flex items-center gap-1 px-1 text-zinc-300 cursor-pointer" title="추가할 참고 이미지의 배경을 자동 제거(누끼)"><input type="checkbox" id="refBoardBgRemove" class="accent-emerald-500"> 누끼</label>
             <span id="refBoardCount" class="text-zinc-500 pr-1"></span>
           </div>
           <input id="refBoardFile" type="file" accept="image/*" multiple class="hidden">
@@ -933,6 +934,9 @@
         <button id="refClearBtn" class="text-[11px] px-2 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" title="밑그림 제거">✕</button>
       </div>
       <input type="file" id="refInput" accept="image/*" class="hidden">
+      <label class="flex items-center gap-1.5 text-[11px] text-zinc-300 cursor-pointer mt-2" title="불러올 때 가장자리에서 연결된 배경만 자동으로 지웁니다(밑그림·참고 공용)">
+        <input type="checkbox" id="refBgRemove" class="accent-emerald-500"> 배경 제거 <span class="text-zinc-600">(누끼 · 참고에도 적용)</span>
+      </label>
       <div class="mt-2">
         <div class="flex justify-between text-[11px] text-zinc-400 mb-1"><span>투명도</span><span id="refOpacityVal" class="mono text-zinc-200">50%</span></div>
         <input type="range" id="refOpacity" min="0" max="100" step="5" value="50" class="w-full">
@@ -1015,6 +1019,7 @@
 </div>
 
 <script src="src/state.js"></script>
+<script src="src/cutout.js"></script>
 <script src="src/color.js"></script>
 <script src="src/render.js"></script>
 <script src="src/tools.js"></script>
@@ -1790,7 +1795,21 @@ function convertImage(img, mode) {
     let bg = null;
     const removeBg = mode === 'sprite' || !!(typeof crop === 'object' && crop && crop.removeBg);
     if (removeBg) bg = cornerBg;
-    const isBg = (r,g,b) => bg && (Math.abs(r-bg.r)+Math.abs(g-bg.g)+Math.abs(b-bg.b) <= (mode==='sprite'?45:60));
+    // 고품질 누끼: 가장자리에서 연결된 배경만 지우는 마스크(캐릭터 내부 같은 색 보존)
+    let bgMask = null;
+    if (removeBg && window.DF && DF.Cutout) {
+      try {
+        const idFull = tctx.getImageData(0, 0, iw, ih);
+        bgMask = DF.Cutout.maskFromImageData(idFull, { tol: mode === 'sprite' ? 16 : 22, local: 12 }).isBg;
+      } catch (e) { bgMask = null; }
+    }
+    const isBgAt = (px, py) => {
+      if (!removeBg) return false;
+      const p = py * iw + px;
+      if (bgMask) return !!bgMask[p];
+      const i = p * 4;
+      return bg && (Math.abs(data[i]-bg.r)+Math.abs(data[i+1]-bg.g)+Math.abs(data[i+2]-bg.b) <= (mode==='sprite'?45:60));
+    };
 
     const newFrame = makeEmptyPixels();
     const spanW = sx1 - sx0, spanH = sy1 - sy0;
@@ -1808,7 +1827,7 @@ function convertImage(img, mode) {
           const cx = Math.min(iw-1, (x0+x1)>>1), cy = Math.min(ih-1, (y0+y1)>>1);
           if (cx < 0 || cy < 0) continue;
           const idx = (cy*iw+cx)*4;
-          if (data[idx+3] >= 128 && !isBg(data[idx],data[idx+1],data[idx+2]))
+          if (data[idx+3] >= 128 && !isBgAt(cx,cy))
             newFrame[gy*res+gx] = '#'+[data[idx],data[idx+1],data[idx+2]].map(v=>v.toString(16).padStart(2,'0')).join('');
           continue;
         }
@@ -1818,7 +1837,7 @@ function convertImage(img, mode) {
             const idx = (py*iw + px)*4, a = data[idx+3];
             total++;
             if (a < 128) continue;
-            if (isBg(data[idx],data[idx+1],data[idx+2])) continue;
+            if (isBgAt(px,py)) continue;
             opaque++;
             const r = data[idx]&0xF8, g = data[idx+1]&0xF8, b = data[idx+2]&0xF8;
             const key = (r<<16)|(g<<8)|b;
@@ -4220,9 +4239,14 @@ function loadRefImage(dataUrl, startSheet) {
   const probe = new Image();
   probe.onload = () => {
     state.ref.natW = probe.naturalWidth; state.ref.natH = probe.naturalHeight;
-    img.dataset.src = dataUrl;
+    let effSrc = dataUrl;
+    // 배경 제거 옵션이면 누끼 처리된 PNG로 깔기
+    if (state.refBgRemove && window.DF && DF.Cutout) {
+      try { const cut = DF.Cutout.fromImage(probe, { tol: 30, local: 14 }); if (cut) effSrc = cut; } catch (e) {}
+    }
+    img.dataset.src = effSrc;
     // 스포이드 샘플용 이미지도 미리 준비 (첫 Shift+클릭도 바로 동작)
-    _refSampleImg = probe; _refSampleSrc = dataUrl; _refFullData = null;
+    _refSampleImg = probe; _refSampleSrc = effSrc; _refFullData = null;
     // 초기화
     state.ref.scale = 1; state.ref.offsetX = 0; state.ref.offsetY = 0;
     $('refScale').value = 100; $('refScaleVal').textContent = '100%';
@@ -4268,6 +4292,18 @@ function syncSheetUI() {
 }
 
 $('refToggle').onclick = () => setRefVisible(!state.refVisible);
+function syncRefBgRemoveUI() {
+  if ($('refBgRemove')) $('refBgRemove').checked = state.refBgRemove;
+  if ($('refBoardBgRemove')) $('refBoardBgRemove').checked = state.refBgRemove;
+}
+if ($('refBgRemove')) $('refBgRemove').addEventListener('change', e => {
+  state.refBgRemove = e.target.checked; syncRefBgRemoveUI();
+  toast(state.refBgRemove ? '이제 참고/밑그림을 불러오면 배경을 자동 제거해요.' : '배경 제거 끔');
+});
+if ($('refBoardBgRemove')) $('refBoardBgRemove').addEventListener('change', e => {
+  state.refBgRemove = e.target.checked; syncRefBgRemoveUI();
+  toast(state.refBgRemove ? '참고 이미지 배경을 자동 제거해요.' : '배경 제거 끔');
+});
 $('refLoadBtn').onclick = () => $('refInput').click();
 $('refInput').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value='';
