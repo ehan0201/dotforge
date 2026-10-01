@@ -908,6 +908,8 @@
         <button class="res-preset flex-1 text-xs py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" data-res="16">16</button>
         <button class="res-preset flex-1 text-xs py-1.5 rounded bg-indigo-600 text-white" data-res="32">32</button>
         <button class="res-preset flex-1 text-xs py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" data-res="64">64</button>
+        <button class="res-preset flex-1 text-xs py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" data-res="128">128</button>
+        <button class="res-preset flex-1 text-xs py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" data-res="256" title="배경 등 큰 작업용">256</button>
       </div>
       <div class="flex items-center gap-2">
         <input type="number" id="resInput" value="32" min="4" max="512" class="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-xs mono focus:outline-none focus:border-indigo-500">
@@ -4006,13 +4008,13 @@ function applyResolution(res, keepFrames = false) {
 }
 document.querySelectorAll('.res-preset').forEach(b => b.onclick = () => { syncResPresets(+b.dataset.res); });
 $('resizeBtn').onclick = () => {
-  const r = Math.max(4, Math.min(128, parseInt($('resInput').value) || 32));
+  const r = Math.max(4, Math.min(512, parseInt($('resInput').value) || 32));
   if (!confirm(`그림을 지우고 ${r}×${r} 빈 캔버스로 바꿀까요?`)) return;
   pushUndo(); applyResolution(r);
 };
 // 그림을 유지하며 해상도 변경 (모든 프레임·레이어 최근접 리샘플)
 $('resizeKeepBtn').onclick = () => {
-  const newRes = Math.max(4, Math.min(128, parseInt($('resInput').value) || 32));
+  const newRes = Math.max(4, Math.min(512, parseInt($('resInput').value) || 32));
   const oldRes = state.res;
   if (newRes === oldRes) { toast('이미 같은 해상도예요.'); return; }
   pushUndo();
