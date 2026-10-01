@@ -700,6 +700,8 @@
           <div id="canvasStage" class="relative shadow-2xl" style="transform:translate(0px,0px)">
             <canvas id="bgCanvas"    class="checker absolute inset-0 z-0"></canvas>
             <div id="refImage" class="absolute inset-0 z-[1] pointer-events-none hidden" style="width:100%;height:100%;opacity:0.5;background-repeat:no-repeat;background-position:center;background-size:contain;image-rendering:auto"></div>
+            <!-- 통합 참조: '밑그림' 모드 이미지가 그려지는 캔버스 뒤 레이어 (Shift 시 위로 올라옴) -->
+            <div id="refUnderLayer" class="absolute inset-0 z-[2] pointer-events-none" style="overflow:hidden"></div>
             <canvas id="onion3" class="absolute inset-0 z-[5] pointer-events-none" style="opacity:.03"></canvas>
             <canvas id="onion2" class="absolute inset-0 z-[6] pointer-events-none" style="opacity:.09"></canvas>
             <canvas id="onion1" class="absolute inset-0 z-10 pointer-events-none" style="opacity:.3"></canvas>
@@ -923,22 +925,37 @@
 
       <div class="h-px bg-zinc-800 my-4"></div>
 
-      <!-- 레퍼런스 이미지 (트레이싱용 밑그림) -->
+      <!-- 통합 이미지(참조) 패널: 밑그림(캔버스 뒤 트레이싱) + 참고(자유 배치)를 한 곳에서 -->
       <div class="flex items-center justify-between mb-2">
-        <h3 class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">레퍼런스 밑그림</h3>
+        <h3 class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">이미지 <span class="text-zinc-600 normal-case tracking-normal">· 밑그림·참고</span></h3>
+      </div>
+      <p class="text-[10px] text-zinc-500 mb-2 leading-relaxed">이미지를 올려 <b class="text-zinc-400">밑그림</b>(캔버스 뒤 따라그리기) 또는 <b class="text-zinc-400">참고</b>(자유 배치)로 쓰세요. <b class="text-zinc-300">Shift</b>를 누르면 원본이 또렷이 보여 <b class="text-zinc-300">스포이드</b>로 색을 뽑을 수 있어요.</p>
+      <div class="flex gap-1.5">
+        <button id="refAddBtn" class="flex-1 text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-zinc-700">＋ 이미지 추가</button>
+        <button id="refClearAllBtn" class="text-[11px] px-2 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" title="모든 참조 이미지 제거">✕</button>
+      </div>
+      <label class="flex items-center gap-1.5 text-[11px] text-zinc-300 cursor-pointer mt-2" title="불러올 때 가장자리에서 연결된 배경만 자동으로 지웁니다(밑그림·참고 공용)">
+        <input type="checkbox" id="refBgRemove" class="accent-emerald-500"> 배경 제거 <span class="text-zinc-600">(누끼)</span>
+      </label>
+      <div id="refList" class="mt-2 space-y-1.5"></div>
+      <p id="refListEmpty" class="text-[10px] text-zinc-600 mt-2">아직 이미지가 없어요. 위 <b class="text-zinc-500">＋ 이미지 추가</b>로 올리거나 캔버스에 드래그/붙여넣기 하세요.</p>
+
+      <!-- 고급: 단일 밑그림 + 스프라이트 시트 (프레임마다 칸) -->
+      <details class="mt-3 pt-3 border-t border-zinc-800/60">
+        <summary class="text-[11px] text-zinc-400 cursor-pointer select-none">🎞 스프라이트 시트 밑그림 <span class="text-zinc-600">(고급 · 프레임마다 칸)</span></summary>
+      <!-- 레퍼런스 이미지 (트레이싱용 단일 밑그림/시트) -->
+      <div class="flex items-center justify-between mb-2 mt-2">
+        <h3 class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">시트 밑그림</h3>
         <button id="refToggle" role="switch" aria-checked="false" class="relative w-9 h-5 rounded-full bg-zinc-700 transition-colors">
           <span class="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"></span>
         </button>
       </div>
-      <p class="text-[10px] text-zinc-500 mb-2 leading-relaxed">이미지를 반투명하게 캔버스 뒤에 깔고 <b class="text-zinc-400">따라 그릴</b> 수 있어요.</p>
+      <p class="text-[10px] text-zinc-500 mb-2 leading-relaxed">스프라이트 시트 한 장을 깔고 <b class="text-zinc-400">프레임마다 칸</b>을 따라 그릴 때 쓰세요.</p>
       <div class="flex gap-1.5">
-        <button id="refLoadBtn" class="flex-1 text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-zinc-700">🖼 밑그림 불러오기</button>
+        <button id="refLoadBtn" class="flex-1 text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-zinc-700">🖼 시트 이미지 불러오기</button>
         <button id="refClearBtn" class="text-[11px] px-2 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" title="밑그림 제거">✕</button>
       </div>
       <input type="file" id="refInput" accept="image/*" class="hidden">
-      <label class="flex items-center gap-1.5 text-[11px] text-zinc-300 cursor-pointer mt-2" title="불러올 때 가장자리에서 연결된 배경만 자동으로 지웁니다(밑그림·참고 공용)">
-        <input type="checkbox" id="refBgRemove" class="accent-emerald-500"> 배경 제거 <span class="text-zinc-600">(누끼 · 참고에도 적용)</span>
-      </label>
       <div class="mt-2">
         <div class="flex justify-between text-[11px] text-zinc-400 mb-1"><span>투명도</span><span id="refOpacityVal" class="mono text-zinc-200">50%</span></div>
         <input type="range" id="refOpacity" min="0" max="100" step="5" value="50" class="w-full">
@@ -966,6 +983,7 @@
         </div>
         <p id="refSheetHint" class="text-[10px] text-zinc-500 mt-1 hidden">현재 프레임 번호에 맞는 칸이 밑그림으로 보여요.</p>
       </div>
+      </details>
 
       <div class="h-px bg-zinc-800 my-4"></div>
 
@@ -4307,6 +4325,13 @@ if ($('refBoardBgRemove')) $('refBoardBgRemove').addEventListener('change', e =>
   state.refBgRemove = e.target.checked; syncRefBgRemoveUI();
   toast(state.refBgRemove ? '참고 이미지 배경을 자동 제거해요.' : '배경 제거 끔');
 });
+// 통합 이미지 패널: 추가 / 전체 제거
+if ($('refAddBtn')) $('refAddBtn').onclick = () => $('refBoardFile')?.click();
+if ($('refClearAllBtn')) $('refClearAllBtn').onclick = () => {
+  if (!(window.DF && DF.RefBoard && DF.RefBoard.hasImages && DF.RefBoard.hasImages())) { toast('제거할 이미지가 없어요.'); return; }
+  if (!confirm('참조 이미지를 모두 제거할까요?')) return;
+  DF.RefBoard.clearAll(); toast('참조 이미지를 모두 제거했어요.');
+};
 $('refLoadBtn').onclick = () => $('refInput').click();
 $('refInput').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value='';

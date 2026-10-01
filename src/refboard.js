@@ -103,9 +103,8 @@ function syncFrame() {
   if (!gifs.length) { _lastSyncFrame = state.current; return; }
   if (state.current === _lastSyncFrame) return;
   _lastSyncFrame = state.current;
-  const layer = $('refBoardLayer'); if (!layer) return;
   gifs.forEach(b => {
-    const el = layer.querySelector(`[data-id="${b.id}"]`);
+    const el = tileEl(b.id);
     const img = el && el.querySelector('img');
     if (img) { const want = displaySrc(b); if (img.getAttribute('src') !== want) img.src = want; }
   });
@@ -114,20 +113,27 @@ function syncFrame() {
 // ---------- 렌더 ----------
 function render() {
   const layer = $('refBoardLayer');
+  const under = $('refUnderLayer');
   if (!layer) return;
   const edit = state.refBoardEdit;
   layer.style.pointerEvents = edit ? 'auto' : 'none';
   layer.innerHTML = '';
+  // 밑그림 레이어: 평소엔 캔버스 뒤(z2), Shift 홀드 시 어니언 위로(z26)로 올려 또렷이
+  if (under) { under.innerHTML = ''; under.style.zIndex = state.shiftHeld ? '26' : '2'; }
 
   state.refBoards.forEach((b, idx) => {
-    const movable = edit && !b.locked;
+    if (b.visible === false) return;
+    const isUnder = b.mode === 'underlay';
+    const host = isUnder ? under : layer;
+    if (!host) return;
+    const movable = edit && !b.locked && !isUnder;   // 밑그림은 드래그/리사이즈 없음(패널에서 조작)
     const el = document.createElement('div');
     el.className = 'ref-tile';
     el.dataset.id = b.id;
     el.style.cssText = 'position:absolute;box-sizing:border-box;' +
-      // 고정/비편집 타일은 pointer-events:none → 화면·그리기를 막지 않음
+      // 고정/비편집/밑그림 타일은 pointer-events:none → 화면·그리기를 막지 않음
       'pointer-events:' + (movable ? 'auto' : 'none') + ';' +
-      (edit ? ('cursor:' + (movable ? 'move' : 'default') + ';outline:2px solid ' +
+      ((edit && !isUnder) ? ('cursor:' + (movable ? 'move' : 'default') + ';outline:2px solid ' +
         (b.locked ? 'rgba(250,204,21,.95)' : 'rgba(99,102,241,.9)') + ';') : '');
     el.style.zIndex = idx;
     layoutTile(el, b);
@@ -139,7 +145,7 @@ function render() {
       (b.flipX ? 'transform:scaleX(-1);' : '');
     el.appendChild(img);
 
-    if (edit && b.locked) {
+    if (edit && b.locked && !isUnder) {
       const lk = document.createElement('div');
       lk.textContent = '🔒';
       lk.style.cssText = 'position:absolute;right:2px;top:2px;font-size:12px;line-height:1;filter:drop-shadow(0 1px 1px #000);';
@@ -152,9 +158,9 @@ function render() {
       h.addEventListener('pointerdown', e => beginDrag(e, b.id, 'resize'));
       el.appendChild(h);
       el.addEventListener('pointerdown', e => beginDrag(e, b.id, 'move'));
+      el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showTileMenu(b, e.clientX, e.clientY); });
     }
-    el.addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); showTileMenu(b, e.clientX, e.clientY); });
-    layer.appendChild(el);
+    host.appendChild(el);
   });
 
   const bar = $('refBoardBar');
@@ -170,6 +176,63 @@ function render() {
       eb.classList.toggle('bg-zinc-800', !edit);
       eb.classList.toggle('text-zinc-300', !edit);
     }
+  }
+  renderPanel();
+}
+
+// ---------- 통합 이미지 리스트 패널 (#refList) ----------
+function renderPanel() {
+  const list = $('refList'); if (!list) return;
+  const empty = $('refListEmpty');
+  list.innerHTML = '';
+  if (empty) empty.style.display = state.refBoards.length ? 'none' : '';
+  // 위에 그려지는(배열 뒤쪽) 이미지를 목록 위로
+  for (let i = state.refBoards.length - 1; i >= 0; i--) {
+    const b = state.refBoards[i];
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px;border:1px solid #27272a;border-radius:8px;background:#18181b80;';
+
+    const thumb = document.createElement('img');
+    thumb.src = displaySrc(b);
+    thumb.style.cssText = 'width:34px;height:34px;object-fit:cover;border-radius:5px;flex:none;background:#09090b;' + (b.visible === false ? 'opacity:.35;' : '');
+    row.appendChild(thumb);
+
+    const midCol = document.createElement('div');
+    midCol.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;';
+    // 모드 선택
+    const sel = document.createElement('select');
+    sel.style.cssText = 'width:100%;background:#27272a;border:1px solid #3f3f46;border-radius:5px;color:#e4e4e7;font-size:11px;padding:2px 4px;';
+    [['underlay', '🖼 밑그림 (캔버스 뒤)'], ['ref', '🧷 참고 (자유 배치)']].forEach(([v, lbl]) => {
+      const o = document.createElement('option'); o.value = v; o.textContent = lbl; if ((b.mode || 'ref') === v) o.selected = true; sel.appendChild(o);
+    });
+    sel.addEventListener('change', () => setMode(b.id, sel.value));
+    midCol.appendChild(sel);
+    // 투명도
+    const op = document.createElement('input');
+    op.type = 'range'; op.min = '0'; op.max = '100'; op.value = Math.round((b.opacity != null ? b.opacity : 1) * 100);
+    op.style.cssText = 'width:100%;';
+    op.addEventListener('input', () => setOpacity(b.id, op.value / 100));
+    op.addEventListener('change', save);
+    midCol.appendChild(op);
+    row.appendChild(midCol);
+
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:none;';
+    const mkBtn = (label, title, fn) => {
+      const x = document.createElement('button');
+      x.textContent = label; x.title = title;
+      x.style.cssText = 'font-size:11px;line-height:1;padding:2px 4px;border-radius:4px;background:#27272a;color:#d4d4d8;';
+      x.addEventListener('mouseenter', () => x.style.background = '#3f3f46');
+      x.addEventListener('mouseleave', () => x.style.background = '#27272a');
+      x.addEventListener('click', fn);
+      return x;
+    };
+    btns.appendChild(mkBtn(b.visible === false ? '🙈' : '👁', '보이기/숨기기', () => setVisible(b.id, b.visible === false)));
+    btns.appendChild(mkBtn(b.locked ? '🔒' : '🔓', '고정(이동 잠금)', () => toggleLock(b.id)));
+    btns.appendChild(mkBtn('✕', '제거', () => remove(b.id)));
+    row.appendChild(btns);
+
+    list.appendChild(row);
   }
 }
 
@@ -196,8 +259,7 @@ function sampleColorAt(clientX, clientY) {
     let v = ((clientY - R.top) / R.height - b.fy) / heightFrac(b);
     if (u < 0 || u > 1 || v < 0 || v > 1) return null;
     if (b.flipX) u = 1 - u;
-    const layer = $('refBoardLayer');
-    const el = layer && layer.querySelector(`[data-id="${b.id}"]`);
+    const el = tileEl(b.id);
     const img = el && el.querySelector('img');
     if (!img || !img.naturalWidth) return null;
     const iw = img.naturalWidth, ih = img.naturalHeight;
@@ -248,7 +310,7 @@ function onMove(e) {
   } else {
     b.fw = Math.max(0.02, startFw + dx / R.width);
   }
-  const el = $('refBoardLayer').querySelector(`[data-id="${dragId}"]`);
+  const el = tileEl(dragId);
   if (el) layoutTile(el, b);
 }
 function onUp() {
@@ -291,7 +353,7 @@ function showTileMenu(b, cx, cy) {
   op.type = 'range'; op.min = '0'; op.max = '100'; op.value = Math.round(b.opacity * 100); op.style.flex = '1';
   op.addEventListener('input', () => {
     b.opacity = Math.max(0, op.value / 100);
-    const el = $('refBoardLayer').querySelector(`[data-id="${b.id}"]`);
+    const el = tileEl(b.id);
     if (el) el.style.opacity = b.opacity;
   });
   op.addEventListener('change', save);
@@ -319,7 +381,7 @@ function showTileMenu(b, cx, cy) {
           b.startFrame = parseInt(fr.value) || 0;
           num.textContent = b.startFrame + '/' + (b.frames.length - 1);
           _lastSyncFrame = -1;
-          const el = $('refBoardLayer').querySelector(`[data-id="${b.id}"]`);
+          const el = tileEl(b.id);
           const img = el && el.querySelector('img'); if (img) img.src = displaySrc(b);
         });
         fr.addEventListener('change', save);
@@ -349,6 +411,7 @@ function addImage(src, natW, natH, fx, fy) {
     id: ++state._refBoardSeq,
     src, natW: natW || 0, natH: natH || 0,
     fx, fy, fw: 0.26, opacity: 1, locked: false, flipX: false,
+    mode: 'ref', visible: true,         // mode: 'ref'(자유 배치) | 'underlay'(캔버스 뒤 밑그림)
     gif, frames: null, playMode: 'sync', startFrame: 0,
   };
   state.refBoards.push(b);
@@ -371,6 +434,35 @@ function clearAll() { state.refBoards = []; render(); save(); }
 function setEdit(on) { state.refBoardEdit = !!on; render(); }
 function toggleEdit() { setEdit(!state.refBoardEdit); }
 function save() { if (typeof autoSave === 'function') autoSave(); }
+
+// 밑그림(underlay)으로 전환 시 정사각 캔버스에 contain(비율유지)으로 꽉 채우는 박스 계산.
+// 박스 종횡비 = 이미지 종횡비라서 object-fit:fill이어도 왜곡 없음 → fx/fw 기반 샘플링이 정확.
+function fitUnderlay(b) {
+  const asp = aspect(b);                 // natH/natW
+  if (asp <= 1) { b.fw = 1; b.fx = 0; b.fy = (1 - asp) / 2; }       // 가로형·정사각
+  else { b.fw = 1 / asp; b.fx = (1 - b.fw) / 2; b.fy = 0; }         // 세로형
+}
+function setMode(id, m) {
+  const b = state.refBoards.find(x => x.id === id); if (!b) return;
+  b.mode = (m === 'underlay') ? 'underlay' : 'ref';
+  if (b.mode === 'underlay') { fitUnderlay(b); b.locked = false; }
+  render(); save();
+}
+function setVisible(id, on) {
+  const b = state.refBoards.find(x => x.id === id); if (!b) return;
+  b.visible = !!on; render(); save();
+}
+function setOpacity(id, v) {
+  const b = state.refBoards.find(x => x.id === id); if (!b) return;
+  b.opacity = Math.max(0, Math.min(1, v));
+  const el = tileEl(id); if (el) el.style.opacity = b.opacity;
+  save();
+}
+// data-id 타일 엘리먼트를 두 레이어(참고/밑그림) 모두에서 찾는다
+function tileEl(id) {
+  const a = $('refBoardLayer'), u = $('refUnderLayer');
+  return (a && a.querySelector(`[data-id="${id}"]`)) || (u && u.querySelector(`[data-id="${id}"]`)) || null;
+}
 
 function readFiles(files, fx, fy) {
   const imgs = [...files].filter(f => f && /^image\//.test(f.type));
@@ -416,6 +508,7 @@ function serialize() {
   return state.refBoards.map(b => ({
     src: b.src, natW: b.natW, natH: b.natH, fx: b.fx, fy: b.fy, fw: b.fw,
     opacity: b.opacity, locked: !!b.locked, flipX: !!b.flipX,
+    mode: b.mode === 'underlay' ? 'underlay' : 'ref', visible: b.visible !== false,
     playMode: b.playMode, startFrame: b.startFrame || 0,
   }));
 }
@@ -437,6 +530,7 @@ function restore(arr) {
         fw: Math.max(0.02, Math.min(2, num(b.fw, 0.26))),
         opacity: Math.max(0, Math.min(1, num(b.opacity, 1))),
         locked: !!b.locked, flipX: !!b.flipX,
+        mode: b.mode === 'underlay' ? 'underlay' : 'ref', visible: b.visible !== false,
         gif, frames: null, playMode: pm, startFrame: Math.max(0, num(b.startFrame, 0)),
       });
     });
@@ -497,7 +591,7 @@ else init();
 DF.RefBoard = {
   init, render, addImage, remove, toFront, toggleLock, toggleFlip, setPlayMode,
   clearAll, setEdit, toggleEdit, serialize, restore, readFiles, hitTest, syncFrame, displaySrc,
-  sampleColorAt, sampleCellColor, hasImages,
+  sampleColorAt, sampleCellColor, hasImages, setMode, setVisible, setOpacity, renderPanel,
 };
 
 })(window.DF);
