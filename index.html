@@ -3001,11 +3001,18 @@ $('lobbyOpenBtn').onclick = () => $('projInput').click();
 $('lobbyKeysBtn').onclick = () => openKeyModal();
 $('keyModalClose').onclick = () => $('keyModal').classList.add('hidden');
 $('keyModal').addEventListener('click', e => { if (e.target === $('keyModal')) $('keyModal').classList.add('hidden'); });
-$('keyModalReset').onclick = () => { keyBindings = Object.assign({}, DEFAULT_BINDINGS); saveBindings(); renderKeyModalList(); renderKeyList(); toast('단축키 기본값'); };
+$('keyModalReset').onclick = () => { keyBindings = Object.assign({}, DEFAULT_BINDINGS); refEditHoldKey = 'alt'; saveBindings(); saveRefHold(); renderKeyModalList(); renderKeyList(); toast('단축키 기본값'); };
 function openKeyModal() { $('keyModal').classList.remove('hidden'); $('keyModal').classList.add('flex'); renderKeyModalList(); }
 function renderKeyModalList() {
   const el = $('keyModalList'); if (!el) return;
   el.innerHTML = '';
+  // 홀드형: 참조 편집 (누르는 동안만). 모디파이어도 지정 가능.
+  const hrow = document.createElement('button');
+  hrow.className = 'w-full flex items-center justify-between text-xs px-3 py-2 rounded hover:bg-zinc-800/70 border border-zinc-800 mb-1';
+  hrow.innerHTML = `<span class="text-zinc-300">참조 편집 <span class="text-zinc-500">· 누르는 동안</span></span>` +
+    `<span class="mono px-2 py-0.5 rounded ${holdCapture ? 'bg-indigo-600 text-white animate-pulse' : 'bg-zinc-800 text-zinc-300'}">${holdCapture ? '키 입력…' : prettyHoldKey(refEditHoldKey)}</span>`;
+  hrow.onclick = () => startHoldCapture();
+  el.appendChild(hrow);
   for (const id in ACTIONS) {
     const row = document.createElement('button');
     row.className = 'w-full flex items-center justify-between text-xs px-3 py-2 rounded hover:bg-zinc-800/70';
@@ -4961,8 +4968,25 @@ const DEFAULT_BINDINGS = {
 let keyBindings = Object.assign({}, DEFAULT_BINDINGS);
 const keysDown = new Set();   // 현재 눌린 키 (C+숫자 등 순차 조합 감지용)
 const keyDownTime = {};       // 키가 눌린 시각 (홀드 만료 판정용, 갇힘 방지)
-function loadBindings() { try { const r = localStorage.getItem('dotforge_keys'); if (r) keyBindings = Object.assign({}, DEFAULT_BINDINGS, JSON.parse(r)); } catch(e){} }
+// 참조 편집 홀드 키: 모디파이어명('alt'|'ctrl'|'shift'|'meta') 또는 단일 키('z' 등). 맥 Alt=⌥, meta=⌘.
+let refEditHoldKey = 'alt';
+function loadBindings() { try { const r = localStorage.getItem('dotforge_keys'); if (r) keyBindings = Object.assign({}, DEFAULT_BINDINGS, JSON.parse(r)); } catch(e){} try { const h = localStorage.getItem('dotforge_refedit_hold'); if (h) refEditHoldKey = h; } catch(e){} }
 function saveBindings() { try { localStorage.setItem('dotforge_keys', JSON.stringify(keyBindings)); } catch(e){} }
+function saveRefHold() { try { localStorage.setItem('dotforge_refedit_hold', refEditHoldKey); } catch(e){} }
+const _MOD_KEYNAME = { alt:'Alt', ctrl:'Control', meta:'Meta', shift:'Shift' };
+// 이 이벤트가 참조 편집 홀드 키의 눌림/뗌인지 (모디파이어 또는 단일 키)
+function refHoldMatch(e) {
+  if (_MOD_KEYNAME[refEditHoldKey]) return e.key === _MOD_KEYNAME[refEditHoldKey];
+  // 단일 키: 다른 모디파이어가 같이 눌리면 조합(예: Ctrl+Z)이므로 홀드로 보지 않음
+  return physKey(e) === refEditHoldKey && !e.ctrlKey && !e.metaKey && !e.altKey;
+}
+function prettyHoldKey(k) {
+  if (k === 'alt') return '⌥ Option (Alt)';
+  if (k === 'meta') return '⌘ Cmd (Meta)';
+  if (k === 'ctrl') return '⌃ Ctrl';
+  if (k === 'shift') return '⇧ Shift';
+  return prettyCombo(k);
+}
 
 // 물리 키 → 논리 키 문자. e.key는 한글 IME(예: b→ㅠ)나 다른 레이아웃에서
 // 엉뚱한 글자가 오므로, 글자/숫자/기호는 e.code(물리 위치)로 판정해 IME·레이아웃 무관하게 동작.
@@ -5004,6 +5028,22 @@ function startKeyCapture(actionId) {
   keyCapture.active = true;
   keyCapture.actionId = actionId;
   renderKeyList();   // "키를 누르세요..." 표시 갱신
+}
+// 참조 편집 홀드 키 캡처 (모디파이어도 허용 — 일반 캡처와 달리 Alt/Ctrl/Cmd 단독 가능)
+let holdCapture = false;
+function startHoldCapture() { holdCapture = true; if (typeof renderKeyModalList === 'function') renderKeyModalList(); renderKeyList(); }
+function captureHoldKey(e) {
+  e.preventDefault();
+  if (e.key === 'Escape') { holdCapture = false; renderKeyModalList(); renderKeyList(); return; }
+  let k = _MOD_KEYNAME.alt === e.key ? 'alt'
+        : _MOD_KEYNAME.ctrl === e.key ? 'ctrl'
+        : _MOD_KEYNAME.meta === e.key ? 'meta'
+        : _MOD_KEYNAME.shift === e.key ? 'shift'
+        : physKey(e);
+  if (!['alt','ctrl','meta','shift'].includes(k) && k.length !== 1) return;  // 쓸 수 없는 키는 무시(계속 대기)
+  refEditHoldKey = k; saveRefHold(); holdCapture = false;
+  renderKeyModalList(); renderKeyList();
+  toast('참조 편집 홀드 키: ' + prettyHoldKey(k));
 }
 function captureKey(e) {
   // 수식키만 누른 상태면 대기 (조합 완성 대기)
@@ -5048,9 +5088,18 @@ function renderKeyList() {
     row.onclick = () => startKeyCapture(id);
     el.appendChild(row);
   }
+  // 홀드형: 참조 편집
+  const hrow = document.createElement('button');
+  hrow.className = 'w-full flex items-center justify-between text-[11px] px-2 py-1.5 rounded hover:bg-zinc-800/70 transition-colors';
+  hrow.innerHTML = `<span class="text-zinc-400">참조 편집 (누르는 동안)</span>` +
+    `<span class="mono px-1.5 py-0.5 rounded ${holdCapture ? 'bg-indigo-600 text-white animate-pulse' : 'bg-zinc-800 text-zinc-300'}">${holdCapture ? '키 입력…' : prettyHoldKey(refEditHoldKey)}</span>`;
+  hrow.onclick = () => startHoldCapture();
+  el.appendChild(hrow);
 }
 
 window.addEventListener('keydown', e => {
+  // 홀드 키 지정 대기 중이면 (모디파이어 포함) 그 입력을 캡처
+  if (holdCapture) { captureHoldKey(e); return; }
   // 키 재설정 대기 중이면 (로비 포함) 그 입력을 캡처
   if (keyCapture.active) { e.preventDefault(); captureKey(e); return; }
   // 모달 Esc 닫기 (로비/에디터 공통)
@@ -5104,10 +5153,10 @@ window.addEventListener('keydown', e => {
   }
 
   // Shift 홀드: 임시 스포이드 + 어니언 위로 (홀드형이라 별도)
-  // Alt 홀드: 참조 이미지 편집(이동·크기조절) 임시 ON. 떼면 다시 그리기 모드.
-  // (버튼 토글은 '고정' 편집으로 그대로 유지 — 그 땐 Alt로 끄지 않음)
-  if (e.key === 'Alt') {
-    e.preventDefault();   // Windows 메뉴 포커스 가로채기 방지
+  // 참조 편집 홀드 키(기본 ⌥/Alt, 키 설정에서 변경 가능): 누르는 동안만 편집 ON. 떼면 그리기.
+  // (버튼 토글은 '고정' 편집으로 그대로 유지 — 그 땐 홀드키로 끄지 않음)
+  if (refHoldMatch(e)) {
+    e.preventDefault();   // 모디파이어 메뉴 포커스/단일키 도구전환 가로채기 방지
     if (!state._altRefEdit && !state.refBoardEdit && window.DF && DF.RefBoard) {
       state._altRefEdit = true;
       DF.RefBoard.setEdit(true);
@@ -5162,8 +5211,8 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => {
   keysDown.delete(physKey(e));
-  if (e.key === 'Alt' && state._altRefEdit) {
-    // Alt 홀드로 켠 참조 편집은 떼면 끈다 (버튼으로 켠 고정 편집은 건드리지 않음)
+  if (state._altRefEdit && refHoldMatch(e)) {
+    // 홀드키로 켠 참조 편집은 떼면 끈다 (버튼으로 켠 고정 편집은 건드리지 않음)
     state._altRefEdit = false;
     if (window.DF && DF.RefBoard) DF.RefBoard.setEdit(false);
   }
