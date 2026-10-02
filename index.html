@@ -717,7 +717,7 @@
           <div id="refBoardBar" class="absolute top-2 left-2 z-50 hidden items-center gap-1 bg-zinc-900/90 border border-zinc-700 rounded-lg px-1.5 py-1 text-xs pointer-events-auto shadow-lg select-none">
             <span class="px-1" title="참고판">🖼️</span>
             <button id="refBoardAdd" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-200">＋ 참고</button>
-            <button id="refBoardEditBtn" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300" title="편집 모드: 드래그로 이동·모서리로 크기조절. 끄면 그 위로 그림">편집</button>
+            <button id="refBoardEditBtn" class="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300" title="편집 고정 ON/OFF. 또는 Alt를 누른 채 드래그하면 잠깐만 이동·크기조절되고 떼면 바로 그리기로 돌아갑니다">편집</button>
             <label class="flex items-center gap-1 px-1 text-zinc-300 cursor-pointer" title="추가할 참고 이미지의 배경을 자동 제거(누끼)"><input type="checkbox" id="refBoardBgRemove" class="accent-emerald-500"> 누끼</label>
             <span id="refBoardCount" class="text-zinc-500 pr-1"></span>
           </div>
@@ -929,7 +929,7 @@
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-[11px] uppercase tracking-wider text-zinc-500 font-semibold">이미지 <span class="text-zinc-600 normal-case tracking-normal">· 밑그림·참고</span></h3>
       </div>
-      <p class="text-[10px] text-zinc-500 mb-2 leading-relaxed">이미지를 올려 <b class="text-zinc-400">밑그림</b>(캔버스 뒤 따라그리기) 또는 <b class="text-zinc-400">참고</b>(자유 배치)로 쓰세요. <b class="text-zinc-300">Shift</b>를 누르면 원본이 또렷이 보여 <b class="text-zinc-300">스포이드</b>로 색을 뽑을 수 있어요.</p>
+      <p class="text-[10px] text-zinc-500 mb-2 leading-relaxed">이미지를 올려 <b class="text-zinc-400">밑그림</b>(캔버스 뒤 따라그리기) 또는 <b class="text-zinc-400">참고</b>(자유 배치)로 쓰세요. <b class="text-zinc-300">Shift</b>=원본 보기·스포이드, <b class="text-zinc-300">Alt 누른 채 드래그</b>=참고 이미지 이동·크기조절(떼면 바로 그리기).</p>
       <div class="flex gap-1.5">
         <button id="refAddBtn" class="flex-1 text-[11px] py-1.5 rounded bg-zinc-800 hover:bg-zinc-700">＋ 이미지 추가</button>
         <button id="refClearAllBtn" class="text-[11px] px-2 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700" title="모든 참조 이미지 제거">✕</button>
@@ -5104,6 +5104,16 @@ window.addEventListener('keydown', e => {
   }
 
   // Shift 홀드: 임시 스포이드 + 어니언 위로 (홀드형이라 별도)
+  // Alt 홀드: 참조 이미지 편집(이동·크기조절) 임시 ON. 떼면 다시 그리기 모드.
+  // (버튼 토글은 '고정' 편집으로 그대로 유지 — 그 땐 Alt로 끄지 않음)
+  if (e.key === 'Alt') {
+    e.preventDefault();   // Windows 메뉴 포커스 가로채기 방지
+    if (!state._altRefEdit && !state.refBoardEdit && window.DF && DF.RefBoard) {
+      state._altRefEdit = true;
+      DF.RefBoard.setEdit(true);
+    }
+    return;
+  }
   if (e.key === 'Shift') {
     if (!state.shiftHeld) {
       state.shiftHeld = true;
@@ -5152,6 +5162,11 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => {
   keysDown.delete(physKey(e));
+  if (e.key === 'Alt' && state._altRefEdit) {
+    // Alt 홀드로 켠 참조 편집은 떼면 끈다 (버튼으로 켠 고정 편집은 건드리지 않음)
+    state._altRefEdit = false;
+    if (window.DF && DF.RefBoard) DF.RefBoard.setEdit(false);
+  }
   if (e.key === 'Tab') {
     // 홀드 종료: 인벤토리 닫기 (버튼/단축키로 연 지속 모드는 유지)
     if (!invPersistent && !$('inventory').classList.contains('hidden')) closeInventory();
@@ -5187,6 +5202,7 @@ window.addEventListener('blur', () => {
     if (state.started) render();
   }
   if (state.spaceHeld) { state.spaceHeld = false; state.panning = false; $('canvasWrap').style.cursor = ''; }
+  if (state._altRefEdit) { state._altRefEdit = false; if (window.DF && DF.RefBoard) DF.RefBoard.setEdit(false); }
   if (!$('inventory').classList.contains('hidden')) closeInventory();
   if (state.drawing) endStroke();
 });

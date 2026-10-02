@@ -78,6 +78,7 @@ const state = {
   refBoards: [],
   refBoardEdit: false,            // 참고판 편집 모드(드래그/리사이즈). off면 그 위로 그대로 그림
   refBgRemove: false,             // 참고/밑그림 불러올 때 배경 자동 제거(누끼)
+  _altRefEdit: false,             // Alt 홀드로 임시 켠 참조 편집 상태 (떼면 꺼짐)
   refsHidden: false,              // 참조 이미지(밑그림+참고판) 일괄 숨김 상태 (H 토글)
   _refBoardSeq: 0,                // 참고판 id 시퀀스
   // 밑그림(레퍼런스) 확장 상태
